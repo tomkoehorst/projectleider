@@ -1060,7 +1060,7 @@
     btn.disabled = true;
     askAnswer.className = "ask-answer loading";
     askAnswer.textContent = "Bezig met nadenken...";
-    var res = await supabaseClient.functions.invoke("ask-claude", {body: {question: question}});
+    var res = await supabaseClient.functions.invoke("hyper-action", {body: {question: question}});
     btn.disabled = false;
     if(res.error){
       askAnswer.className = "ask-answer error";
