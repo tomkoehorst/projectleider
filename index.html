@@ -1,0 +1,1033 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Projectradar</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg: #F6F5F1;
+    --surface: #FFFFFF;
+    --text: #1B1D1C;
+    --text-muted: #6B6E68;
+    --text-faint: #9A9D96;
+    --border: #E3E1D8;
+    --border-strong: #CFCCC0;
+    --accent: #285C58;
+    --accent-strong: #1B403D;
+    --accent-soft: rgba(40,92,88,0.09);
+    --good: #2E7D4F;
+    --good-bg: #E5F2E8;
+    --warn: #A66A0C;
+    --warn-bg: #FBEED9;
+    --risk: #B23A2E;
+    --risk-bg: #FBE7E3;
+    --shadow: 0 1px 2px rgba(20,20,15,0.04), 0 6px 16px -8px rgba(20,20,15,0.12);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg: #14161A;
+      --surface: #1C1F23;
+      --text: #ECEDE9;
+      --text-muted: #A2A6A0;
+      --text-faint: #74786F;
+      --border: #33373A;
+      --border-strong: #454A4C;
+      --accent: #6FBBB3;
+      --accent-strong: #8FD0C8;
+      --accent-soft: rgba(111,187,179,0.12);
+      --good: #6BC48D;
+      --good-bg: rgba(107,196,141,0.14);
+      --warn: #E3AA4C;
+      --warn-bg: rgba(227,170,76,0.14);
+      --risk: #E2837A;
+      --risk-bg: rgba(226,131,122,0.14);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 20px -10px rgba(0,0,0,0.5);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg: #14161A;
+    --surface: #1C1F23;
+    --text: #ECEDE9;
+    --text-muted: #A2A6A0;
+    --text-faint: #74786F;
+    --border: #33373A;
+    --border-strong: #454A4C;
+    --accent: #6FBBB3;
+    --accent-strong: #8FD0C8;
+    --accent-soft: rgba(111,187,179,0.12);
+    --good: #6BC48D;
+    --good-bg: rgba(107,196,141,0.14);
+    --warn: #E3AA4C;
+    --warn-bg: rgba(227,170,76,0.14);
+    --risk: #E2837A;
+    --risk-bg: rgba(226,131,122,0.14);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 20px -10px rgba(0,0,0,0.5);
+    color-scheme: dark;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Public Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    padding-inline:20px;
+    padding-block:28px 60px;
+  }
+  .page{max-width:960px;margin-inline:auto;}
+  [hidden]{display:none!important;}
+
+  /* ---- auth screen ---- */
+  .auth-wrap{min-height:70vh;display:flex;align-items:center;justify-content:center;}
+  .auth-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:32px 28px;
+    max-width:340px;
+    width:100%;
+    box-shadow:var(--shadow);
+  }
+  .auth-card h1{
+    font-family:"Fraunces", Georgia, serif;
+    font-weight:600;
+    font-size:24px;
+    margin:0 0 4px;
+  }
+  .auth-card .subtitle{margin:0 0 22px;color:var(--text-muted);font-size:13.5px;}
+  .auth-field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;}
+  .auth-field label{font-size:12px;color:var(--text-muted);}
+  .auth-field input{
+    font-family:inherit;font-size:14px;
+    border:1px solid var(--border-strong);
+    border-radius:8px;
+    padding:9px 10px;
+    background:var(--surface);
+    color:var(--text);
+  }
+  .auth-error{color:var(--risk);font-size:13px;margin:10px 0 0;min-height:1em;}
+  .session-bar{
+    display:flex;justify-content:flex-end;align-items:center;gap:10px;
+    margin-bottom:8px;font-size:12.5px;color:var(--text-faint);
+  }
+
+  .topbar{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+    margin-bottom:22px;
+  }
+  h1{
+    font-family:"Fraunces", Georgia, serif;
+    font-weight:600;
+    font-size:34px;
+    letter-spacing:-0.01em;
+    margin:0 0 4px;
+    text-wrap:balance;
+  }
+  .subtitle{margin:0;color:var(--text-muted);font-size:14px;}
+  .btn-primary{
+    background:var(--accent);
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    padding:10px 16px;
+    font-family:inherit;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .btn-primary:hover{background:var(--accent-strong);}
+  .btn-primary:disabled{opacity:0.6;cursor:default;}
+  .btn-primary.full{width:100%;}
+  .btn-text{
+    background:none;border:none;padding:0;
+    font-family:inherit;font-size:13px;font-weight:500;
+    color:var(--text-faint);cursor:pointer;
+  }
+  .btn-text:hover{color:var(--text-muted);}
+  .btn-text.danger:hover{color:var(--risk);}
+
+  .stats{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
+    gap:1px;
+    background:var(--border);
+    border:1px solid var(--border);
+    border-radius:10px;
+    overflow:hidden;
+    margin-bottom:20px;
+  }
+  .stat{background:var(--surface);padding:14px 16px;}
+  .stat-label{
+    font-size:11px;text-transform:uppercase;letter-spacing:0.06em;
+    color:var(--text-faint);margin:0 0 6px;
+  }
+  .stat-value{
+    font-family:"IBM Plex Mono", monospace;
+    font-variant-numeric:tabular-nums;
+    font-size:22px;font-weight:500;margin:0;
+  }
+  .stat-value.risk{color:var(--risk);}
+  .stat-value.warn{color:var(--warn);}
+  .stat-sub{font-size:12px;color:var(--text-muted);margin-top:2px;}
+
+  .list{
+    display:flex;flex-direction:column;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .row{border-bottom:1px solid var(--border);}
+  .row:last-child{border-bottom:none;}
+
+  .row-summary{
+    display:flex;align-items:center;gap:14px;
+    padding:12px 16px;cursor:pointer;flex-wrap:wrap;
+  }
+  .row-summary:hover{background:var(--accent-soft);}
+  .row.expanded .row-summary{background:var(--accent-soft);}
+
+  .health-slider-wrap{
+    display:flex;align-items:center;gap:8px;
+    flex:1 1 130px;min-width:120px;max-width:200px;
+  }
+  .health-slider{flex:1;width:100%;height:16px;margin:0;cursor:pointer;accent-color:var(--text-faint);}
+  .health-label{
+    font-family:"IBM Plex Mono", monospace;
+    font-variant-numeric:tabular-nums;
+    font-size:11.5px;color:var(--text-muted);white-space:nowrap;min-width:2.4em;
+  }
+
+  .row-name{
+    font-family:"Fraunces", Georgia, serif;
+    font-weight:600;font-size:15.5px;
+    flex:1 1 150px;min-width:110px;
+  }
+  .row-progress{
+    display:flex;align-items:center;gap:8px;
+    flex:1 1 130px;min-width:110px;max-width:180px;
+  }
+  .progress-track{flex:1;height:6px;border-radius:999px;background:var(--border);overflow:hidden;}
+  .progress-fill{height:100%;border-radius:999px;background:var(--text-faint);}
+  .progress-label{
+    font-family:"IBM Plex Mono", monospace;
+    font-variant-numeric:tabular-nums;
+    font-size:11.5px;color:var(--text-muted);white-space:nowrap;
+  }
+  .row-milestone{
+    flex:1 1 130px;min-width:110px;
+    font-size:12.5px;color:var(--text-muted);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .row-milestone.date-urgent{color:var(--risk);font-weight:600;}
+  .row-milestone.milestone-empty-inline{color:var(--text-faint);font-style:italic;}
+  .row-chevron{flex:none;color:var(--text-faint);transition:transform .15s ease;margin-left:auto;}
+  .row.expanded .row-chevron{transform:rotate(90deg);}
+
+  .row-todo-preview{
+    flex-basis:100%;display:flex;align-items:center;gap:5px;
+    font-size:12.5px;color:var(--text-muted);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .row-todo-preview svg{flex:none;color:var(--text-faint);}
+  .row-todo-more{color:var(--text-faint);}
+
+  .row-detail{padding:4px 16px 18px 39px;display:flex;flex-direction:column;gap:12px;}
+
+  .card-name{
+    font-family:"Fraunces", Georgia, serif;
+    font-weight:600;font-size:17px;margin:0;cursor:text;word-break:break-word;
+  }
+  .name-input{
+    font-family:"Fraunces", Georgia, serif;
+    font-weight:600;font-size:17px;
+    border:1px solid var(--accent);
+    border-radius:6px;padding:3px 6px;
+    background:var(--surface);color:var(--text);width:100%;
+  }
+  .field-label{
+    font-size:11px;text-transform:uppercase;letter-spacing:0.06em;
+    color:var(--text-faint);margin:0 0 4px;
+  }
+
+  .milestone-view{cursor:pointer;border-radius:6px;padding:2px 4px;margin:-2px -4px;}
+  .milestone-view:hover{background:var(--accent-soft);}
+  .milestone-text{font-size:14px;margin:0;}
+  .milestone-date{
+    font-family:"IBM Plex Mono", monospace;
+    font-variant-numeric:tabular-nums;
+    font-size:12.5px;color:var(--text-muted);
+  }
+  .milestone-empty{font-size:13px;color:var(--text-faint);font-style:italic;}
+
+  .milestone-edit{display:flex;flex-direction:column;gap:6px;}
+  .milestone-edit input[type="text"], .milestone-edit input[type="date"]{
+    font-family:inherit;font-size:13px;
+    border:1px solid var(--border-strong);
+    border-radius:6px;padding:6px 8px;
+    background:var(--surface);color:var(--text);width:100%;
+  }
+  .btn-row{display:flex;gap:8px;margin-top:2px;}
+
+  .todos{display:flex;flex-direction:column;gap:6px;}
+  .todo-item{display:flex;align-items:flex-start;gap:8px;font-size:13.5px;}
+  .todo-item input[type="checkbox"]{margin-top:3px;accent-color:var(--accent);flex:none;}
+  .todo-item span{flex:1;line-height:1.4;}
+  .todo-item.done span{color:var(--text-faint);text-decoration:line-through;}
+  .todo-del{
+    flex:none;background:none;border:none;color:var(--text-faint);
+    cursor:pointer;font-size:15px;line-height:1;padding:0 2px;
+  }
+  .todo-del:hover{color:var(--risk);}
+  .todo-empty{font-size:13px;color:var(--text-faint);font-style:italic;}
+  .todo-add{display:flex;gap:6px;margin-top:2px;}
+  .todo-add input{
+    flex:1;font-family:inherit;font-size:13px;
+    border:1px solid var(--border);border-radius:6px;padding:6px 8px;
+    background:var(--surface);color:var(--text);
+  }
+  .todo-add button{
+    flex:none;background:var(--accent-soft);color:var(--accent);
+    border:none;border-radius:6px;padding:0 12px;
+    font-size:13px;font-weight:600;cursor:pointer;
+  }
+
+  .note{
+    font-family:inherit;font-size:13.5px;line-height:1.5;
+    border:1px solid var(--border);border-radius:6px;padding:8px 10px;
+    background:var(--surface);color:var(--text);resize:vertical;min-height:52px;width:100%;
+  }
+  .note:focus{border-color:var(--accent);outline:none;}
+  .note::placeholder{color:var(--text-faint);}
+
+  .row-footer{
+    display:flex;align-items:center;justify-content:space-between;
+    border-top:1px solid var(--border);padding-top:10px;
+  }
+  .updated-at{font-size:11.5px;color:var(--text-faint);}
+  .confirm-delete{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-muted);}
+
+  .new-row{padding:14px 16px;}
+  .new-row input[type="text"]{
+    font-family:"Fraunces", Georgia, serif;font-size:16px;
+    border:1px solid var(--accent);border-radius:6px;padding:8px 10px;
+    background:var(--surface);color:var(--text);width:100%;margin-bottom:8px;
+  }
+
+  .empty{text-align:center;color:var(--text-muted);font-size:14px;padding:40px 20px;}
+
+  .nudge-icon{flex:none;}
+  .footer-actions{display:flex;align-items:center;gap:14px;}
+
+  .archive-toggle-btn{margin-top:14px;}
+  .archive-list{
+    margin-top:8px;border:1px solid var(--border);border-radius:10px;
+    overflow:hidden;background:var(--surface);
+  }
+  .archive-row{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:10px 16px;border-bottom:1px solid var(--border);font-size:13.5px;
+  }
+  .archive-row:last-child{border-bottom:none;}
+  .archive-name{color:var(--text-muted);text-decoration:line-through;}
+  .archive-actions{display:flex;align-items:center;gap:12px;flex:none;}
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div id="authScreen" class="auth-wrap">
+    <form class="auth-card" id="loginForm">
+      <h1>Projectradar</h1>
+      <p class="subtitle">Log in om je projectoverzicht te zien.</p>
+      <div class="auth-field">
+        <label for="authEmail">E-mailadres</label>
+        <input type="email" id="authEmail" autocomplete="username" required>
+      </div>
+      <div class="auth-field">
+        <label for="authPassword">Wachtwoord</label>
+        <input type="password" id="authPassword" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn-primary full">Inloggen</button>
+      <p class="auth-error" id="authError"></p>
+    </form>
+  </div>
+
+  <div id="appScreen" hidden>
+    <div class="session-bar">
+      <span id="sessionEmail"></span>
+      <button class="btn-text" id="logoutBtn" type="button">Uitloggen</button>
+    </div>
+
+    <div class="topbar">
+      <div class="title-block">
+        <h1>Projectradar</h1>
+        <p class="subtitle">Digitaliseringsprojecten · gemeente Utrecht</p>
+      </div>
+      <button class="btn-primary" id="addProjectBtn" type="button">+ Nieuw project</button>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div id="listRoot">
+      <main class="list" id="grid"></main>
+      <div id="archiveWrap"></div>
+    </div>
+
+    <p class="empty" id="emptyState" hidden>Nog geen projecten. Klik op &ldquo;+ Nieuw project&rdquo; om te beginnen.</p>
+    <p class="empty" id="offlineState" hidden>Kan de database niet bereiken. Vernieuw de pagina om het opnieuw te proberen.</p>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  var SUPABASE_URL = "https://nqkfpuxtegepsugqjune.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_o2v6CMYOtqdLQZZl9R7raA_1aDBS9GG";
+  var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  var STARTERS = [
+    {name:"Wizzportaal", health:79, milestone_text:"", milestone_date:null, todos:[], note:"Status nog niet ingevuld — pas aan zodra bekend.", sort_order:1},
+    {name:"Chatbot", health:85, milestone_text:"", milestone_date:null, todos:[], note:"Status nog niet ingevuld — pas aan zodra bekend.", sort_order:2},
+    {name:"BOOSTER MO", health:85, milestone_text:"", milestone_date:null, todos:[], note:"Status nog niet ingevuld — pas aan zodra bekend.", sort_order:3},
+    {name:"Viantis", health:85, milestone_text:"", milestone_date:null, todos:[], note:"Status nog niet ingevuld — pas aan zodra bekend.", sort_order:4}
+  ];
+
+  var MONTHS = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+
+  function getHealth(p){ return typeof p.health === "number" ? p.health : 75; }
+  function healthBucket(h){
+    if(h >= 67) return {label:"Op schema", color:"var(--good)"};
+    if(h >= 34) return {label:"Aandacht nodig", color:"var(--warn)"};
+    return {label:"Risico", color:"var(--risk)"};
+  }
+
+  var authScreen = document.getElementById("authScreen");
+  var appScreen = document.getElementById("appScreen");
+  var loginForm = document.getElementById("loginForm");
+  var authError = document.getElementById("authError");
+  var sessionEmail = document.getElementById("sessionEmail");
+  var logoutBtn = document.getElementById("logoutBtn");
+
+  var root = document.getElementById("listRoot");
+  var grid = document.getElementById("grid");
+  var archiveWrap = document.getElementById("archiveWrap");
+  var statsEl = document.getElementById("stats");
+  var emptyState = document.getElementById("emptyState");
+  var offlineState = document.getElementById("offlineState");
+  var addBtn = document.getElementById("addProjectBtn");
+
+  var docs = [];
+  var uiState = {};
+  var showAddForm = false;
+  var archiveOpen = false;
+  var noteTimers = {};
+  var seeded = false;
+
+  function activeDocs(){ return docs.filter(function(d){ return !d.archived; }); }
+  function archivedDocs(){ return docs.filter(function(d){ return d.archived; }); }
+
+  function uid(){
+    try { return crypto.randomUUID(); } catch(e){ return String(Date.now()) + Math.random().toString(16).slice(2); }
+  }
+
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  function fmtDate(iso){
+    if(!iso) return "";
+    var parts = iso.split("-");
+    if(parts.length !== 3) return iso;
+    var d = parseInt(parts[2],10), m = parseInt(parts[1],10)-1;
+    if(isNaN(d) || isNaN(m) || !MONTHS[m]) return iso;
+    return d + " " + MONTHS[m];
+  }
+
+  function relTime(iso){
+    if(!iso) return "";
+    var then = new Date(iso).getTime();
+    if(isNaN(then)) return "";
+    var diffMs = Date.now() - then;
+    var mins = Math.round(diffMs/60000);
+    if(mins < 1) return "zojuist bijgewerkt";
+    if(mins < 60) return "bijgewerkt " + mins + " min geleden";
+    var hours = Math.round(mins/60);
+    if(hours < 24) return "bijgewerkt " + hours + " uur geleden";
+    var days = Math.round(hours/24);
+    if(days < 30) return "bijgewerkt " + days + (days===1 ? " dag" : " dagen") + " geleden";
+    return "bijgewerkt op " + fmtDate(iso.slice(0,10));
+  }
+
+  function todayISO(){
+    var d = new Date();
+    var m = String(d.getMonth()+1).padStart(2,"0");
+    var day = String(d.getDate()).padStart(2,"0");
+    return d.getFullYear() + "-" + m + "-" + day;
+  }
+
+  function daysUntil(iso){
+    var t = todayISO().split("-").map(Number);
+    var todayUTC = Date.UTC(t[0], t[1]-1, t[2]);
+    var p = iso.split("-").map(Number);
+    var targetUTC = Date.UTC(p[0], p[1]-1, p[2]);
+    return Math.round((targetUTC - todayUTC) / 86400000);
+  }
+
+  function milestoneSummary(p){
+    if(p.milestone_date){
+      var days = daysUntil(p.milestone_date);
+      var label;
+      if(days === 0) label = "vandaag";
+      else if(days === 1) label = "morgen";
+      else if(days === -1) label = "gisteren";
+      else if(days > 1) label = "over " + days + " dagen";
+      else label = Math.abs(days) + " dagen te laat";
+      return {text: label, urgent: days <= 3, title: p.milestone_text || fmtDate(p.milestone_date)};
+    }
+    if(p.milestone_text) return {text: p.milestone_text, urgent:false, title:""};
+    return {text:"Geen mijlpaal", urgent:false, empty:true, title:""};
+  }
+
+  function saveFocus(){
+    var el = document.activeElement;
+    if(!el || !root.contains(el) || !el.id) return null;
+    var info = {id: el.id};
+    if(typeof el.selectionStart === "number"){
+      info.start = el.selectionStart;
+      info.end = el.selectionEnd;
+    }
+    return info;
+  }
+  function restoreFocus(info){
+    if(!info) return;
+    var el = document.getElementById(info.id);
+    if(!el) return;
+    el.focus();
+    if(typeof info.start === "number" && typeof el.setSelectionRange === "function"){
+      try{ el.setSelectionRange(info.start, info.end); }catch(e){}
+    }
+  }
+
+  function sortedDocs(){
+    return activeDocs().sort(function(a,b){
+      var ha = getHealth(a), hb = getHealth(b);
+      if(ha !== hb) return ha - hb;
+      var da = a.milestone_date || "9999-99-99";
+      var db2 = b.milestone_date || "9999-99-99";
+      if(da !== db2) return da < db2 ? -1 : 1;
+      return (a.sort_order||0) - (b.sort_order||0);
+    });
+  }
+
+  function renderStats(){
+    var active = activeDocs();
+    var total = active.length;
+    var buckets = active.map(function(d){ return healthBucket(getHealth(d)).label; });
+    var risk = buckets.filter(function(l){ return l === "Risico"; }).length;
+    var warn = buckets.filter(function(l){ return l === "Aandacht nodig"; }).length;
+    var good = buckets.filter(function(l){ return l === "Op schema"; }).length;
+    var openTodoCount = active.reduce(function(sum, d){
+      var todos = d.todos;
+      return sum + (Array.isArray(todos) ? todos.filter(function(t){ return !t.done; }).length : 0);
+    }, 0);
+    var today = todayISO();
+    var upcoming = active
+      .filter(function(p){ return p.milestone_date; })
+      .sort(function(a,b){ return a.milestone_date < b.milestone_date ? -1 : 1; });
+    var next = upcoming.find(function(p){ return p.milestone_date >= today; }) || upcoming[0];
+
+    statsEl.innerHTML =
+      '<div class="stat"><p class="stat-label">Projecten</p><p class="stat-value">' + total + '</p></div>' +
+      '<div class="stat"><p class="stat-label">Op schema</p><p class="stat-value">' + good + '</p></div>' +
+      '<div class="stat"><p class="stat-label">Aandacht</p><p class="stat-value warn">' + warn + '</p></div>' +
+      '<div class="stat"><p class="stat-label">Risico</p><p class="stat-value risk">' + risk + '</p></div>' +
+      '<div class="stat"><p class="stat-label">Open to do&rsquo;s</p><p class="stat-value">' + openTodoCount + '</p></div>' +
+      '<div class="stat"><p class="stat-label">Eerstvolgende mijlpaal</p><p class="stat-value" style="font-size:15px;">' +
+        (next ? esc(next.name) : "&ndash;") +
+        '</p><p class="stat-sub">' + (next ? fmtDate(next.milestone_date) : "Geen mijlpalen gepland") + '</p></div>';
+  }
+
+  function detailHTML(id, p, ui, todos){
+    var nameBlock = ui.editName
+      ? '<input class="name-input" id="name-input-' + id + '" type="text" value="' + esc(p.name) + '" data-id="' + id + '">'
+      : '<h3 class="card-name" data-action="edit-name" data-id="' + id + '">' + esc(p.name) + '</h3>';
+
+    var milestoneBlock;
+    if(ui.editMilestone){
+      milestoneBlock =
+        '<div class="milestone-edit">' +
+          '<p class="field-label">Mijlpaal</p>' +
+          '<input type="text" id="milestone-text-' + id + '" placeholder="Bijv. Oplevering testfase" value="' + esc(p.milestone_text) + '">' +
+          '<input type="date" id="milestone-date-' + id + '" value="' + esc(p.milestone_date || "") + '">' +
+          '<div class="btn-row">' +
+            '<button class="btn-primary" style="padding:6px 12px;font-size:12.5px;" data-action="save-milestone" data-id="' + id + '">Opslaan</button>' +
+            '<button class="btn-text" data-action="cancel-milestone" data-id="' + id + '">Annuleren</button>' +
+          '</div>' +
+        '</div>';
+    } else if(p.milestone_text || p.milestone_date) {
+      milestoneBlock =
+        '<div class="milestone-view" data-action="edit-milestone" data-id="' + id + '">' +
+          '<p class="field-label">Mijlpaal</p>' +
+          '<p class="milestone-text">' + esc(p.milestone_text || "Zonder omschrijving") +
+          (p.milestone_date ? ' &middot; <span class="milestone-date">' + fmtDate(p.milestone_date) + '</span>' : '') +
+          '</p>' +
+        '</div>';
+    } else {
+      milestoneBlock =
+        '<div class="milestone-view" data-action="edit-milestone" data-id="' + id + '">' +
+          '<p class="field-label">Mijlpaal</p>' +
+          '<p class="milestone-empty">Nog geen mijlpaal &mdash; klik om toe te voegen</p>' +
+        '</div>';
+    }
+
+    var todosHTML = todos.map(function(t){
+      return '<div class="todo-item' + (t.done ? ' done' : '') + '">' +
+        '<input type="checkbox" ' + (t.done ? "checked" : "") + ' data-action="toggle-todo" data-id="' + id + '" data-todo="' + t.id + '">' +
+        '<span>' + esc(t.text) + '</span>' +
+        '<button class="todo-del" title="Verwijderen" data-action="delete-todo" data-id="' + id + '" data-todo="' + t.id + '">&times;</button>' +
+      '</div>';
+    }).join("") || '<p class="todo-empty">Geen open to do&rsquo;s</p>';
+
+    return (
+      '<div class="row-detail">' +
+        nameBlock +
+        milestoneBlock +
+        '<div>' +
+          '<p class="field-label">To do&rsquo;s</p>' +
+          '<div class="todos">' + todosHTML + '</div>' +
+          '<div class="todo-add">' +
+            '<input type="text" id="todo-input-' + id + '" placeholder="Nieuwe to do...">' +
+            '<button data-action="add-todo" data-id="' + id + '" type="button">Toevoegen</button>' +
+          '</div>' +
+        '</div>' +
+        '<div>' +
+          '<p class="field-label">Notitie</p>' +
+          '<textarea class="note" id="note-' + id + '" data-id="' + id + '" placeholder="Laatste stand van zaken...">' + esc(p.note) + '</textarea>' +
+        '</div>' +
+        '<div class="row-footer">' +
+          '<span class="updated-at">' + esc(relTime(p.updated_at)) + '</span>' +
+          '<span class="footer-actions">' +
+            '<button class="btn-text" data-action="archive-project" data-id="' + id + '">Afronden</button>' +
+            deleteControl(id, ui) +
+          '</span>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function deleteControl(id, ui){
+    return ui.confirmDelete
+      ? '<span class="confirm-delete">Verwijderen?' +
+          '<button class="btn-text danger" data-action="confirm-delete" data-id="' + id + '">Ja</button>' +
+          '<button class="btn-text" data-action="cancel-delete" data-id="' + id + '">Nee</button>' +
+        '</span>'
+      : '<button class="btn-text" data-action="ask-delete" data-id="' + id + '">Verwijderen</button>';
+  }
+
+  function archiveRowHTML(p){
+    var id = p.id;
+    var ui = uiState[id] || {};
+    return (
+      '<div class="archive-row">' +
+        '<span class="archive-name">' + esc(p.name) + '</span>' +
+        '<span class="archive-actions">' +
+          '<button class="btn-text" data-action="unarchive-project" data-id="' + id + '">Heropenen</button>' +
+          deleteControl(id, ui) +
+        '</span>' +
+      '</div>'
+    );
+  }
+
+  function renderArchive(){
+    var archived = archivedDocs();
+    if(archived.length === 0){
+      archiveWrap.innerHTML = "";
+      return;
+    }
+    var label = (archiveOpen ? "Verberg" : "Toon") + " afgeronde projecten (" + archived.length + ")";
+    archiveWrap.innerHTML =
+      '<button class="btn-text archive-toggle-btn" data-action="toggle-archive" type="button">' + label + '</button>' +
+      (archiveOpen ? '<div class="archive-list">' + archived.map(archiveRowHTML).join("") + '</div>' : '');
+  }
+
+  function rowHTML(p){
+    var id = p.id;
+    var ui = uiState[id] || {};
+    var todos = Array.isArray(p.todos) ? p.todos : [];
+    var done = todos.filter(function(t){ return t.done; }).length;
+    var total = todos.length;
+    var pct = total ? Math.round(done/total*100) : 0;
+    var ms = milestoneSummary(p);
+    var h = getHealth(p);
+    var bucket = healthBucket(h);
+    var openTodos = todos.filter(function(t){ return !t.done; });
+    var overdue = p.milestone_date && daysUntil(p.milestone_date) < 0;
+    var needsNudge = overdue && bucket.label !== "Risico";
+    var nudgeIcon = needsNudge
+      ? '<svg class="nudge-icon" width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><title>Mijlpaal is verstreken, status nog niet aangepast</title><path d="M8 1.5l7 12.5H1L8 1.5z" fill="none" stroke="var(--risk)" stroke-width="1.3" stroke-linejoin="round"/><line x1="8" y1="6" x2="8" y2="9.3" stroke="var(--risk)" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.4" r="0.9" fill="var(--risk)"/></svg>'
+      : "";
+
+    var todoPreview = "";
+    if(openTodos.length && !ui.expanded){
+      todoPreview =
+        '<span class="row-todo-preview">' +
+          '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect x="1" y="1" width="8" height="8" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>' +
+          esc(openTodos[0].text) +
+          (openTodos.length > 1 ? ' <span class="row-todo-more">+' + (openTodos.length - 1) + ' meer</span>' : '') +
+        '</span>';
+    }
+
+    var summary =
+      '<div class="row-summary" data-action="toggle-expand" data-id="' + id + '">' +
+        '<span class="row-name">' + esc(p.name) + '</span>' +
+        '<span class="health-slider-wrap">' +
+          '<input type="range" class="health-slider" min="0" max="100" step="1" value="' + h + '" style="accent-color:' + bucket.color + '" data-action="health-slider" data-id="' + id + '" id="health-' + id + '" aria-label="Status ' + esc(p.name) + '">' +
+          '<span class="health-label" id="health-label-' + id + '" title="' + esc(bucket.label) + '">' + h + '%</span>' +
+          nudgeIcon +
+        '</span>' +
+        '<span class="row-progress">' +
+          '<span class="progress-track"><span class="progress-fill" style="width:' + pct + '%;background:' + bucket.color + '"></span></span>' +
+          '<span class="progress-label">' + (total ? (done + '/' + total) : '&ndash;') + '</span>' +
+        '</span>' +
+        '<span class="row-milestone' + (ms.urgent ? ' date-urgent' : '') + (ms.empty ? ' milestone-empty-inline' : '') + '" title="' + esc(ms.title) + '">' + esc(ms.text) + '</span>' +
+        '<svg class="row-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        todoPreview +
+      '</div>';
+
+    var detail = ui.expanded ? detailHTML(id, p, ui, todos) : "";
+
+    return '<article class="row' + (ui.expanded ? ' expanded' : '') + '" data-id="' + id + '">' + summary + detail + '</article>';
+  }
+
+  function newRowHTML(){
+    if(!showAddForm) return "";
+    return (
+      '<div class="row new-row">' +
+        '<p class="field-label">Nieuw project</p>' +
+        '<input type="text" id="new-project-name" placeholder="Projectnaam">' +
+        '<div class="btn-row">' +
+          '<button class="btn-primary" style="padding:7px 14px;font-size:13px;" data-action="create-project" type="button">Aanmaken</button>' +
+          '<button class="btn-text" data-action="cancel-new" type="button">Annuleren</button>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function render(){
+    var focus = saveFocus();
+    renderStats();
+    emptyState.hidden = activeDocs().length > 0 || showAddForm;
+    grid.innerHTML = newRowHTML() + sortedDocs().map(rowHTML).join("");
+    renderArchive();
+    restoreFocus(focus);
+    if(showAddForm){
+      var el = document.getElementById("new-project-name");
+      if(el && document.activeElement !== el && !focus) el.focus();
+    }
+  }
+
+  function getData(id){
+    return docs.find(function(d){ return d.id === id; }) || null;
+  }
+  function touch(extra){
+    extra = extra || {};
+    extra.updated_at = new Date().toISOString();
+    return extra;
+  }
+
+  async function loadProjects(){
+    var res = await supabaseClient.from("projects").select("*").order("sort_order", {ascending:true});
+    if(res.error){ offlineState.hidden = false; return; }
+    offlineState.hidden = true;
+    if(res.data.length === 0 && !seeded){
+      seeded = true;
+      await supabaseClient.from("projects").insert(STARTERS);
+      res = await supabaseClient.from("projects").select("*").order("sort_order", {ascending:true});
+    }
+    docs = res.data || [];
+  }
+
+  async function updateProject(id, patch){
+    await supabaseClient.from("projects").update(patch).eq("id", id);
+    await loadProjects();
+    render();
+  }
+  async function deleteProject(id){
+    await supabaseClient.from("projects").delete().eq("id", id);
+    await loadProjects();
+    render();
+  }
+  async function addProject(row){
+    await supabaseClient.from("projects").insert(row);
+    await loadProjects();
+    render();
+  }
+
+  function onGridClick(e){
+    var actionEl = e.target.closest("[data-action]");
+    if(!actionEl) return;
+    var action = actionEl.getAttribute("data-action");
+    var id = actionEl.getAttribute("data-id");
+
+    if(action === "toggle-expand"){
+      uiState[id] = Object.assign({}, uiState[id], {expanded: !(uiState[id] && uiState[id].expanded)});
+      render();
+      return;
+    }
+    if(action === "edit-name"){
+      uiState[id] = Object.assign({}, uiState[id], {editName:true});
+      render();
+      var input = document.getElementById("name-input-" + id);
+      if(input){ input.focus(); input.select(); }
+      return;
+    }
+    if(action === "edit-milestone"){
+      uiState[id] = Object.assign({}, uiState[id], {editMilestone:true});
+      render();
+      return;
+    }
+    if(action === "cancel-milestone"){
+      uiState[id] = Object.assign({}, uiState[id], {editMilestone:false});
+      render();
+      return;
+    }
+    if(action === "save-milestone"){
+      var textEl = document.getElementById("milestone-text-" + id);
+      var dateEl = document.getElementById("milestone-date-" + id);
+      updateProject(id, touch({
+        milestone_text: textEl ? textEl.value.trim() : "",
+        milestone_date: (dateEl && dateEl.value) ? dateEl.value : null
+      }));
+      uiState[id] = Object.assign({}, uiState[id], {editMilestone:false});
+      return;
+    }
+    if(action === "add-todo"){
+      var input = document.getElementById("todo-input-" + id);
+      var text = input ? input.value.trim() : "";
+      if(!text) return;
+      var cur = getData(id);
+      var todos = (cur && Array.isArray(cur.todos)) ? cur.todos.slice() : [];
+      todos.push({id: uid(), text: text, done: false});
+      updateProject(id, touch({todos: todos}));
+      if(input) input.value = "";
+      return;
+    }
+    if(action === "delete-todo"){
+      var todoId = actionEl.getAttribute("data-todo");
+      var cur = getData(id);
+      var todos = (cur && Array.isArray(cur.todos)) ? cur.todos.filter(function(t){ return t.id !== todoId; }) : [];
+      updateProject(id, touch({todos: todos}));
+      return;
+    }
+    if(action === "ask-delete"){
+      uiState[id] = Object.assign({}, uiState[id], {confirmDelete:true});
+      render();
+      return;
+    }
+    if(action === "cancel-delete"){
+      uiState[id] = Object.assign({}, uiState[id], {confirmDelete:false});
+      render();
+      return;
+    }
+    if(action === "confirm-delete"){
+      deleteProject(id);
+      return;
+    }
+    if(action === "archive-project"){
+      updateProject(id, touch({archived: true}));
+      return;
+    }
+    if(action === "unarchive-project"){
+      updateProject(id, touch({archived: false}));
+      return;
+    }
+    if(action === "toggle-archive"){
+      archiveOpen = !archiveOpen;
+      render();
+      return;
+    }
+    if(action === "create-project"){
+      submitNewProject();
+      return;
+    }
+    if(action === "cancel-new"){
+      showAddForm = false;
+      render();
+      return;
+    }
+  }
+
+  function onGridChange(e){
+    var t = e.target;
+    if(t.matches('[data-action="toggle-todo"]')){
+      var id = t.getAttribute("data-id");
+      var todoId = t.getAttribute("data-todo");
+      var cur = getData(id);
+      var todos = (cur && Array.isArray(cur.todos)) ? cur.todos.map(function(x){
+        return x.id === todoId ? Object.assign({}, x, {done: t.checked}) : x;
+      }) : [];
+      updateProject(id, touch({todos: todos}));
+      return;
+    }
+    if(t.matches('[data-action="health-slider"]')){
+      var id2 = t.getAttribute("data-id");
+      var val = parseInt(t.value, 10);
+      var cur2 = getData(id2);
+      if(cur2 && getHealth(cur2) === val) return;
+      updateProject(id2, touch({health: val}));
+    }
+  }
+
+  function applyHealthLive(id, val){
+    var bucket = healthBucket(val);
+    var label = document.getElementById("health-label-" + id);
+    if(label){ label.textContent = val + "%"; label.title = bucket.label; }
+    var slider = document.getElementById("health-" + id);
+    if(slider) slider.style.accentColor = bucket.color;
+    var fill = grid.querySelector('.row[data-id="' + id + '"] .progress-fill');
+    if(fill) fill.style.background = bucket.color;
+  }
+
+  function onGridBlur(e){
+    var t = e.target;
+    if(t.id && t.id.indexOf("note-") === 0){
+      var id = t.getAttribute("data-id");
+      clearTimeout(noteTimers[id]);
+      var val = t.value;
+      var cur = getData(id);
+      if(cur && cur.note === val) return;
+      updateProject(id, touch({note: val}));
+      return;
+    }
+    if(t.id && t.id.indexOf("name-input-") === 0){
+      var id2 = t.getAttribute("data-id");
+      var val2 = t.value.trim();
+      if(val2){
+        var cur2 = getData(id2);
+        if(!cur2 || cur2.name !== val2) updateProject(id2, touch({name: val2}));
+      }
+      uiState[id2] = Object.assign({}, uiState[id2], {editName:false});
+      render();
+    }
+  }
+
+  function onGridKeydown(e){
+    if(e.target.id && e.target.id.indexOf("name-input-") === 0 && e.key === "Enter"){
+      e.target.blur();
+    }
+    if(e.target.id && e.target.id.indexOf("todo-input-") === 0 && e.key === "Enter"){
+      var id = e.target.getAttribute("id").replace("todo-input-", "");
+      var input = e.target;
+      var text = input.value.trim();
+      if(!text) return;
+      var cur = getData(id);
+      var todos = (cur && Array.isArray(cur.todos)) ? cur.todos.slice() : [];
+      todos.push({id: uid(), text: text, done: false});
+      updateProject(id, touch({todos: todos}));
+      input.value = "";
+    }
+    if(e.target.id === "new-project-name" && e.key === "Enter"){
+      submitNewProject();
+    }
+  }
+
+  function onGridInput(e){
+    var t = e.target;
+    if(t.matches && t.matches('[data-action="health-slider"]')){
+      applyHealthLive(t.getAttribute("data-id"), parseInt(t.value, 10));
+      return;
+    }
+    if(t.id && t.id.indexOf("note-") === 0){
+      var id = t.getAttribute("data-id");
+      clearTimeout(noteTimers[id]);
+      var val = t.value;
+      noteTimers[id] = setTimeout(function(){
+        var cur = getData(id);
+        if(cur && cur.note === val) return;
+        updateProject(id, touch({note: val}));
+      }, 1200);
+    }
+  }
+
+  function submitNewProject(){
+    var input = document.getElementById("new-project-name");
+    var name = input ? input.value.trim() : "";
+    if(!name) return;
+    var maxOrder = docs.reduce(function(m,d){ return typeof d.sort_order === "number" && d.sort_order > m ? d.sort_order : m; }, 0);
+    addProject({
+      name: name,
+      health: 75,
+      milestone_text: "",
+      milestone_date: null,
+      todos: [],
+      note: "",
+      sort_order: maxOrder + 1
+    });
+    showAddForm = false;
+  }
+
+  addBtn.addEventListener("click", function(){
+    showAddForm = true;
+    render();
+  });
+
+  root.addEventListener("click", onGridClick);
+  root.addEventListener("change", onGridChange);
+  root.addEventListener("blur", onGridBlur, true);
+  root.addEventListener("keydown", onGridKeydown);
+  root.addEventListener("input", onGridInput);
+
+  // ---- auth ----
+  loginForm.addEventListener("submit", async function(e){
+    e.preventDefault();
+    authError.textContent = "";
+    var email = document.getElementById("authEmail").value.trim();
+    var password = document.getElementById("authPassword").value;
+    var btn = loginForm.querySelector('button[type="submit"]');
+    btn.disabled = true; btn.textContent = "Bezig...";
+    var res = await supabaseClient.auth.signInWithPassword({email: email, password: password});
+    btn.disabled = false; btn.textContent = "Inloggen";
+    if(res.error){
+      authError.textContent = "Inloggen mislukt. Controleer e-mail en wachtwoord.";
+    }
+  });
+
+  logoutBtn.addEventListener("click", function(){
+    supabaseClient.auth.signOut();
+  });
+
+  function showAuthScreen(){
+    authScreen.hidden = false;
+    appScreen.hidden = true;
+  }
+
+  function enterApp(session){
+    authScreen.hidden = true;
+    appScreen.hidden = false;
+    sessionEmail.textContent = session && session.user ? session.user.email : "";
+    loadProjects().then(render);
+  }
+
+  supabaseClient.auth.onAuthStateChange(function(event, session){
+    if(session){ enterApp(session); } else { showAuthScreen(); }
+  });
+})();
+</script>
+</body>
+</html>
