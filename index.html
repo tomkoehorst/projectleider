@@ -342,18 +342,27 @@
     font-size:16px;
     margin:0 0 10px;
   }
+  .chat-log{
+    display:flex;flex-direction:column;gap:10px;
+    max-height:360px;overflow-y:auto;
+    margin-bottom:12px;padding-right:2px;
+  }
+  .chat-msg{
+    font-size:13.5px;line-height:1.5;white-space:pre-wrap;
+    padding:8px 12px;border-radius:10px;max-width:88%;
+  }
+  .chat-msg.user{align-self:flex-end;background:var(--accent-soft);color:var(--text);}
+  .chat-msg.assistant{align-self:flex-start;background:var(--bg);border:1px solid var(--border);color:var(--text);}
+  .chat-msg.loading{color:var(--text-faint);font-style:italic;}
+  .chat-msg.error{color:var(--risk);border-color:var(--risk-bg);}
   .ask-row{display:flex;gap:8px;flex-wrap:wrap;}
-  .ask-row input{
-    flex:1;min-width:200px;
+  .ask-row textarea{
+    flex:1;min-width:200px;min-height:44px;resize:vertical;
     font-family:inherit;font-size:14px;
     border:1px solid var(--border-strong);
     border-radius:8px;padding:9px 10px;
     background:var(--surface);color:var(--text);
   }
-  .ask-answer{margin:12px 0 0;font-size:13.5px;line-height:1.5;white-space:pre-wrap;}
-  .ask-answer:empty{display:none;}
-  .ask-answer.loading{color:var(--text-faint);font-style:italic;}
-  .ask-answer.error{color:var(--risk);}
 
   .nudge-icon{flex:none;}
   .footer-actions{display:flex;align-items:center;gap:14px;}
@@ -411,11 +420,11 @@
 
     <div class="ask-card">
       <h2>Vraag het aan Claude</h2>
+      <div class="chat-log" id="chatLog"></div>
       <form id="askForm" class="ask-row">
-        <input type="text" id="askInput" placeholder="Bijv. welk project heeft nu de meeste aandacht nodig?">
+        <textarea id="askInput" placeholder="Bijv. help me een agenda voorbereiden voor het overleg over Wizzportaal"></textarea>
         <button type="submit" class="btn-primary">Vraag</button>
       </form>
-      <p class="ask-answer" id="askAnswer"></p>
     </div>
 
     <div id="listRoot">
@@ -1050,25 +1059,48 @@
 
   var askForm = document.getElementById("askForm");
   var askInput = document.getElementById("askInput");
-  var askAnswer = document.getElementById("askAnswer");
+  var chatLog = document.getElementById("chatLog");
+  var chatHistory = [];
+
+  function renderChat(){
+    chatLog.innerHTML = chatHistory.map(function(m){
+      var cls = "chat-msg " + m.role + (m.pending ? " loading" : "") + (m.error ? " error" : "");
+      return '<div class="' + cls + '">' + esc(m.content) + '</div>';
+    }).join("");
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
 
   askForm.addEventListener("submit", async function(e){
     e.preventDefault();
-    var question = askInput.value.trim();
-    if(!question) return;
+    var text = askInput.value.trim();
+    if(!text) return;
+    askInput.value = "";
+    chatHistory.push({role:"user", content: text});
+    chatHistory.push({role:"assistant", content:"Bezig met nadenken...", pending:true});
+    renderChat();
+
     var btn = askForm.querySelector('button[type="submit"]');
     btn.disabled = true;
-    askAnswer.className = "ask-answer loading";
-    askAnswer.textContent = "Bezig met nadenken...";
-    var res = await supabaseClient.functions.invoke("hyper-action", {body: {question: question}});
+    var apiMessages = chatHistory.filter(function(m){ return !m.pending; }).map(function(m){
+      return {role: m.role, content: m.content};
+    });
+    var res = await supabaseClient.functions.invoke("hyper-action", {body: {messages: apiMessages}});
     btn.disabled = false;
-    if(res.error){
-      askAnswer.className = "ask-answer error";
-      askAnswer.textContent = "Er ging iets mis. Probeer het opnieuw.";
-      return;
+    chatHistory.pop();
+
+    if(res.error || (res.data && res.data.error)){
+      chatHistory.push({role:"assistant", content:"Er ging iets mis. Probeer het opnieuw.", error:true});
+    } else {
+      chatHistory.push({role:"assistant", content: (res.data && res.data.answer) ? res.data.answer : "Geen antwoord ontvangen."});
     }
-    askAnswer.className = "ask-answer";
-    askAnswer.textContent = (res.data && res.data.answer) ? res.data.answer : "Geen antwoord ontvangen.";
+    renderChat();
+  });
+
+  askInput.addEventListener("keydown", function(e){
+    if(e.key === "Enter" && !e.shiftKey){
+      e.preventDefault();
+      askForm.requestSubmit();
+    }
   });
 
   function showAuthScreen(){
