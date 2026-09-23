@@ -328,6 +328,33 @@
 
   .empty{text-align:center;color:var(--text-muted);font-size:14px;padding:40px 20px;}
 
+  .ask-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:16px;
+    margin-bottom:20px;
+    box-shadow:var(--shadow);
+  }
+  .ask-card h2{
+    font-family:"Fraunces", Georgia, serif;
+    font-weight:600;
+    font-size:16px;
+    margin:0 0 10px;
+  }
+  .ask-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .ask-row input{
+    flex:1;min-width:200px;
+    font-family:inherit;font-size:14px;
+    border:1px solid var(--border-strong);
+    border-radius:8px;padding:9px 10px;
+    background:var(--surface);color:var(--text);
+  }
+  .ask-answer{margin:12px 0 0;font-size:13.5px;line-height:1.5;white-space:pre-wrap;}
+  .ask-answer:empty{display:none;}
+  .ask-answer.loading{color:var(--text-faint);font-style:italic;}
+  .ask-answer.error{color:var(--risk);}
+
   .nudge-icon{flex:none;}
   .footer-actions{display:flex;align-items:center;gap:14px;}
 
@@ -381,6 +408,15 @@
     </div>
 
     <div class="stats" id="stats"></div>
+
+    <div class="ask-card">
+      <h2>Vraag het aan Claude</h2>
+      <form id="askForm" class="ask-row">
+        <input type="text" id="askInput" placeholder="Bijv. welk project heeft nu de meeste aandacht nodig?">
+        <button type="submit" class="btn-primary">Vraag</button>
+      </form>
+      <p class="ask-answer" id="askAnswer"></p>
+    </div>
 
     <div id="listRoot">
       <main class="list" id="grid"></main>
@@ -1010,6 +1046,29 @@
 
   logoutBtn.addEventListener("click", function(){
     supabaseClient.auth.signOut();
+  });
+
+  var askForm = document.getElementById("askForm");
+  var askInput = document.getElementById("askInput");
+  var askAnswer = document.getElementById("askAnswer");
+
+  askForm.addEventListener("submit", async function(e){
+    e.preventDefault();
+    var question = askInput.value.trim();
+    if(!question) return;
+    var btn = askForm.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    askAnswer.className = "ask-answer loading";
+    askAnswer.textContent = "Bezig met nadenken...";
+    var res = await supabaseClient.functions.invoke("ask-claude", {body: {question: question}});
+    btn.disabled = false;
+    if(res.error){
+      askAnswer.className = "ask-answer error";
+      askAnswer.textContent = "Er ging iets mis. Probeer het opnieuw.";
+      return;
+    }
+    askAnswer.className = "ask-answer";
+    askAnswer.textContent = (res.data && res.data.answer) ? res.data.answer : "Geen antwoord ontvangen.";
   });
 
   function showAuthScreen(){
