@@ -465,7 +465,7 @@
       </form>
       <label class="deep-toggle">
         <input type="checkbox" id="deepToggle">
-        Diepgaand nadenken (voor lastige vragen, kost iets meer)
+        Gebruik Sonnet 5 (voor lastige vragen; standaard het goedkopere Haiku)
       </label>
       <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt" hidden>
     </div>
@@ -1258,8 +1258,8 @@
     var apiMessages = chatHistory.filter(function(m){ return !m.pending; }).map(function(m){
       return {role: m.role, content: m.content};
     });
-    var deep = document.getElementById("deepToggle").checked;
-    var res = await supabaseClient.functions.invoke("hyper-action", {body: {messages: apiMessages, deep: deep}});
+    var useSonnet = document.getElementById("deepToggle").checked;
+    var res = await supabaseClient.functions.invoke("hyper-action", {body: {messages: apiMessages, useSonnet: useSonnet}});
     btn.disabled = false;
     chatHistory.pop();
 
