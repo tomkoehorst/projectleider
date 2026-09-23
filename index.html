@@ -342,6 +342,16 @@
     font-size:16px;
     margin:0 0 10px;
   }
+  .chat-toolbar{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    margin-bottom:10px;
+  }
+  .chat-toolbar select{
+    font-family:inherit;font-size:12.5px;
+    border:1px solid var(--border-strong);border-radius:6px;
+    padding:5px 8px;background:var(--surface);color:var(--text);
+    max-width:200px;
+  }
   .chat-log{
     display:flex;flex-direction:column;gap:10px;
     max-height:360px;overflow-y:auto;
@@ -435,6 +445,11 @@
 
     <div class="ask-card">
       <h2>Vraag het aan Claude</h2>
+      <div class="chat-toolbar">
+        <select id="sessionSelect"><option value="">&mdash; Nieuw gesprek &mdash;</option></select>
+        <button type="button" id="saveSessionBtn" class="btn-text">Bewaar gesprek</button>
+        <button type="button" id="newSessionBtn" class="btn-text">Nieuw gesprek</button>
+      </div>
       <div class="chat-log" id="chatLog"></div>
       <div class="attached-chip" id="attachedChip" hidden></div>
       <form id="askForm" class="ask-row">
@@ -1083,6 +1098,63 @@
   var attachedChip = document.getElementById("attachedChip");
   var chatHistory = [];
   var stagedFile = null;
+  var currentSessionId = null;
+  var sessionSelect = document.getElementById("sessionSelect");
+  var saveSessionBtn = document.getElementById("saveSessionBtn");
+  var newSessionBtn = document.getElementById("newSessionBtn");
+
+  async function loadSessions(){
+    var res = await supabaseClient.from("chat_sessions").select("id, title, updated_at").order("updated_at", {ascending:false});
+    var sessions = res.data || [];
+    sessionSelect.innerHTML = '<option value="">&mdash; Nieuw gesprek &mdash;</option>' + sessions.map(function(s){
+      return '<option value="' + s.id + '">' + esc(s.title) + '</option>';
+    }).join("");
+    sessionSelect.value = currentSessionId || "";
+  }
+
+  sessionSelect.addEventListener("change", async function(){
+    var id = sessionSelect.value;
+    if(!id){
+      currentSessionId = null;
+      chatHistory = [];
+      renderChat();
+      return;
+    }
+    var res = await supabaseClient.from("chat_sessions").select("*").eq("id", id).single();
+    if(res.data){
+      currentSessionId = res.data.id;
+      chatHistory = res.data.messages || [];
+      renderChat();
+    }
+  });
+
+  newSessionBtn.addEventListener("click", function(){
+    currentSessionId = null;
+    chatHistory = [];
+    stagedFile = null;
+    showAttachedChip();
+    sessionSelect.value = "";
+    renderChat();
+  });
+
+  saveSessionBtn.addEventListener("click", async function(){
+    var cleanHistory = chatHistory.filter(function(m){ return !m.pending; });
+    if(cleanHistory.length === 0) return;
+    if(currentSessionId){
+      await supabaseClient.from("chat_sessions").update({
+        messages: cleanHistory,
+        updated_at: new Date().toISOString()
+      }).eq("id", currentSessionId);
+    } else {
+      var firstMsg = cleanHistory[0];
+      var suggestion = firstMsg.display || (typeof firstMsg.content === "string" ? firstMsg.content : "Gesprek");
+      var title = window.prompt("Naam voor dit gesprek:", suggestion.slice(0, 40));
+      if(!title) return;
+      var res = await supabaseClient.from("chat_sessions").insert({title: title, messages: cleanHistory}).select().single();
+      if(res.data) currentSessionId = res.data.id;
+    }
+    await loadSessions();
+  });
 
   function renderChat(){
     chatLog.innerHTML = chatHistory.map(function(m){
@@ -1205,6 +1277,7 @@
     appScreen.hidden = false;
     sessionEmail.textContent = session && session.user ? session.user.email : "";
     loadProjects().then(render);
+    loadSessions();
   }
 
   supabaseClient.auth.onAuthStateChange(function(event, session){
