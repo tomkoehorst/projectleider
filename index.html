@@ -363,6 +363,21 @@
     border-radius:8px;padding:9px 10px;
     background:var(--surface);color:var(--text);
   }
+  .attach-btn{
+    flex:none;background:var(--accent-soft);color:var(--accent);
+    border:none;border-radius:8px;padding:0 12px;
+    font-size:16px;cursor:pointer;
+  }
+  .attached-chip{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:12px;color:var(--text-muted);
+    background:var(--accent-soft);border-radius:999px;
+    padding:4px 10px;margin-bottom:8px;
+  }
+  .attached-chip button{
+    background:none;border:none;color:var(--text-faint);
+    cursor:pointer;font-size:14px;padding:0;line-height:1;
+  }
 
   .nudge-icon{flex:none;}
   .footer-actions{display:flex;align-items:center;gap:14px;}
@@ -421,10 +436,13 @@
     <div class="ask-card">
       <h2>Vraag het aan Claude</h2>
       <div class="chat-log" id="chatLog"></div>
+      <div class="attached-chip" id="attachedChip" hidden></div>
       <form id="askForm" class="ask-row">
+        <button type="button" id="attachBtn" class="attach-btn" title="Bestand bijvoegen">&#128206;</button>
         <textarea id="askInput" placeholder="Bijv. help me een agenda voorbereiden voor het overleg over Wizzportaal"></textarea>
         <button type="submit" class="btn-primary">Vraag</button>
       </form>
+      <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt" hidden>
     </div>
 
     <div id="listRoot">
@@ -1060,23 +1078,97 @@
   var askForm = document.getElementById("askForm");
   var askInput = document.getElementById("askInput");
   var chatLog = document.getElementById("chatLog");
+  var attachBtn = document.getElementById("attachBtn");
+  var fileInput = document.getElementById("fileInput");
+  var attachedChip = document.getElementById("attachedChip");
   var chatHistory = [];
+  var stagedFile = null;
 
   function renderChat(){
     chatLog.innerHTML = chatHistory.map(function(m){
       var cls = "chat-msg " + m.role + (m.pending ? " loading" : "") + (m.error ? " error" : "");
-      return '<div class="' + cls + '">' + esc(m.content) + '</div>';
+      var text = typeof m.content === "string" ? m.content : (m.display || "[bijlage]");
+      return '<div class="' + cls + '">' + esc(text) + '</div>';
     }).join("");
     chatLog.scrollTop = chatLog.scrollHeight;
   }
 
+  function fileToBase64(file){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onload = function(){ resolve(reader.result.split(",")[1]); };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+  function fileToText(file){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onload = function(){ resolve(reader.result); };
+      reader.onerror = reject;
+      reader.readAsText(file);
+    });
+  }
+
+  function showAttachedChip(){
+    if(!stagedFile){ attachedChip.hidden = true; attachedChip.innerHTML = ""; return; }
+    attachedChip.hidden = false;
+    attachedChip.innerHTML = "&#128206; " + esc(stagedFile.name) + ' <button type="button" id="removeAttachBtn">&times;</button>';
+    document.getElementById("removeAttachBtn").addEventListener("click", function(){
+      stagedFile = null;
+      showAttachedChip();
+    });
+  }
+
+  attachBtn.addEventListener("click", function(){ fileInput.click(); });
+
+  fileInput.addEventListener("change", async function(){
+    var file = fileInput.files[0];
+    fileInput.value = "";
+    if(!file) return;
+    var MAX_BYTES = 8 * 1024 * 1024;
+    if(file.size > MAX_BYTES){
+      window.alert("Bestand is te groot (max 8MB).");
+      return;
+    }
+    var type = file.type;
+    if(type === "application/pdf"){
+      stagedFile = {name: file.name, kind:"document", mediaType: type, data: await fileToBase64(file)};
+    } else if(type.indexOf("image/") === 0){
+      stagedFile = {name: file.name, kind:"image", mediaType: type, data: await fileToBase64(file)};
+    } else if(type === "text/plain" || /\.txt$/i.test(file.name)){
+      stagedFile = {name: file.name, kind:"text", data: await fileToText(file)};
+    } else {
+      window.alert("Dit bestandstype wordt nog niet ondersteund. Gebruik PDF, een afbeelding (png/jpg) of platte tekst (.txt).");
+      return;
+    }
+    showAttachedChip();
+  });
+
   askForm.addEventListener("submit", async function(e){
     e.preventDefault();
     var text = askInput.value.trim();
-    if(!text) return;
+    if(!text && !stagedFile) return;
     askInput.value = "";
-    chatHistory.push({role:"user", content: text});
+
+    var contentBlocks = [];
+    var displayText = text;
+    if(stagedFile){
+      if(stagedFile.kind === "document"){
+        contentBlocks.push({type:"document", source:{type:"base64", media_type: stagedFile.mediaType, data: stagedFile.data}, cache_control:{type:"ephemeral"}});
+      } else if(stagedFile.kind === "image"){
+        contentBlocks.push({type:"image", source:{type:"base64", media_type: stagedFile.mediaType, data: stagedFile.data}, cache_control:{type:"ephemeral"}});
+      } else if(stagedFile.kind === "text"){
+        contentBlocks.push({type:"text", text: "[Bestand: " + stagedFile.name + "]\n" + stagedFile.data});
+      }
+      displayText = "📎 " + stagedFile.name + (text ? ("\n" + text) : "");
+    }
+    contentBlocks.push({type:"text", text: text || "Analyseer dit bestand."});
+
+    chatHistory.push({role:"user", content: contentBlocks, display: displayText});
     chatHistory.push({role:"assistant", content:"Bezig met nadenken...", pending:true});
+    stagedFile = null;
+    showAttachedChip();
     renderChat();
 
     var btn = askForm.querySelector('button[type="submit"]');
