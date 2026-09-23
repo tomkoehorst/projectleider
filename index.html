@@ -1256,6 +1256,8 @@
       chatHistory.push({role:"assistant", content:"Er ging iets mis. Probeer het opnieuw.", error:true});
     } else {
       chatHistory.push({role:"assistant", content: (res.data && res.data.answer) ? res.data.answer : "Geen antwoord ontvangen."});
+      await loadProjects();
+      render();
     }
     renderChat();
   });
