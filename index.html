@@ -352,6 +352,12 @@
     padding:5px 8px;background:var(--surface);color:var(--text);
     max-width:200px;
   }
+  .deep-toggle{
+    display:flex;align-items:center;gap:6px;
+    font-size:12px;color:var(--text-muted);
+    margin-top:8px;cursor:pointer;
+  }
+  .deep-toggle input{accent-color:var(--accent);}
   .chat-log{
     display:flex;flex-direction:column;gap:10px;
     max-height:360px;overflow-y:auto;
@@ -457,6 +463,10 @@
         <textarea id="askInput" placeholder="Bijv. help me een agenda voorbereiden voor het overleg over Wizzportaal"></textarea>
         <button type="submit" class="btn-primary">Vraag</button>
       </form>
+      <label class="deep-toggle">
+        <input type="checkbox" id="deepToggle">
+        Diepgaand nadenken (voor lastige vragen, kost iets meer)
+      </label>
       <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt" hidden>
     </div>
 
@@ -1248,7 +1258,8 @@
     var apiMessages = chatHistory.filter(function(m){ return !m.pending; }).map(function(m){
       return {role: m.role, content: m.content};
     });
-    var res = await supabaseClient.functions.invoke("hyper-action", {body: {messages: apiMessages}});
+    var deep = document.getElementById("deepToggle").checked;
+    var res = await supabaseClient.functions.invoke("hyper-action", {body: {messages: apiMessages, deep: deep}});
     btn.disabled = false;
     chatHistory.pop();
 
