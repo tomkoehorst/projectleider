@@ -475,6 +475,7 @@
         <select id="sessionProjectSelect"><option value="">Geen project</option></select>
         <button type="button" id="saveSessionBtn" class="btn-text">Bewaar gesprek</button>
         <button type="button" id="newSessionBtn" class="btn-text">Nieuw gesprek</button>
+        <button type="button" id="deleteSessionBtn" class="btn-text danger">Verwijder gesprek</button>
       </div>
       <div class="chat-log" id="chatLog"></div>
       <div class="attached-chip" id="attachedChip" hidden></div>
@@ -1283,6 +1284,22 @@
     showAttachedChip();
     sessionSelect.value = "";
     sessionProjectSelect.value = "";
+    renderChat();
+  });
+
+  var deleteSessionBtn = document.getElementById("deleteSessionBtn");
+  deleteSessionBtn.addEventListener("click", async function(){
+    if(!currentSessionId){
+      window.alert("Selecteer eerst een opgeslagen gesprek om te verwijderen.");
+      return;
+    }
+    if(!window.confirm("Dit gesprek definitief verwijderen?")) return;
+    await supabaseClient.from("chat_sessions").delete().eq("id", currentSessionId);
+    currentSessionId = null;
+    chatHistory = [];
+    sessionProjectSelect.value = "";
+    await loadSessions();
+    render();
     renderChat();
   });
 
