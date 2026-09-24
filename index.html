@@ -304,6 +304,25 @@
     font-size:13px;font-weight:600;cursor:pointer;
   }
 
+  .files-list{display:flex;flex-direction:column;gap:6px;margin-bottom:6px;}
+  .file-item{
+    display:flex;align-items:center;gap:8px;
+    font-size:13px;
+  }
+  .file-item .file-name{flex:1;word-break:break-word;}
+  .file-item .file-size{color:var(--text-faint);font-size:11.5px;white-space:nowrap;}
+  .file-empty{font-size:13px;color:var(--text-faint);font-style:italic;}
+  .sessions-list{display:flex;flex-direction:column;gap:4px;margin-bottom:6px;}
+  .session-item{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    font-size:13px;
+  }
+  .session-item button{
+    background:none;border:none;color:var(--accent);
+    text-decoration:underline;cursor:pointer;font-size:13px;padding:0;
+    text-align:left;
+  }
+
   .note{
     font-family:inherit;font-size:13.5px;line-height:1.5;
     border:1px solid var(--border);border-radius:6px;padding:8px 10px;
@@ -453,6 +472,7 @@
       <h2>Stel je vraag</h2>
       <div class="chat-toolbar">
         <select id="sessionSelect"><option value="">&mdash; Nieuw gesprek &mdash;</option></select>
+        <select id="sessionProjectSelect"><option value="">Geen project</option></select>
         <button type="button" id="saveSessionBtn" class="btn-text">Bewaar gesprek</button>
         <button type="button" id="newSessionBtn" class="btn-text">Nieuw gesprek</button>
       </div>
@@ -469,6 +489,7 @@
       </label>
       <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt" hidden>
     </div>
+    <input type="file" id="projectFileInput" hidden>
 
     <div id="listRoot">
       <main class="list" id="grid"></main>
@@ -524,6 +545,14 @@
   var archiveOpen = false;
   var noteTimers = {};
   var seeded = false;
+  var allFiles = [];
+  var currentUserId = null;
+  var uploadTargetProjectId = null;
+
+  async function loadProjectFiles(){
+    var res = await supabaseClient.from("project_files").select("*").order("uploaded_at", {ascending:false});
+    allFiles = res.data || [];
+  }
 
   function activeDocs(){ return docs.filter(function(d){ return !d.archived; }); }
   function archivedDocs(){ return docs.filter(function(d){ return d.archived; }); }
@@ -708,6 +737,8 @@
           '<p class="field-label">Notitie</p>' +
           '<textarea class="note" id="note-' + id + '" data-id="' + id + '" placeholder="Laatste stand van zaken...">' + esc(p.note) + '</textarea>' +
         '</div>' +
+        filesSectionHTML(id) +
+        sessionsSectionHTML(id) +
         '<div class="row-footer">' +
           '<span class="updated-at">' + esc(relTime(p.updated_at)) + '</span>' +
           '<span class="footer-actions">' +
@@ -726,6 +757,53 @@
           '<button class="btn-text" data-action="cancel-delete" data-id="' + id + '">Nee</button>' +
         '</span>'
       : '<button class="btn-text" data-action="ask-delete" data-id="' + id + '">Verwijderen</button>';
+  }
+
+  function fmtBytes(n){
+    if(n == null) return "";
+    if(n < 1024) return n + " B";
+    if(n < 1024*1024) return Math.round(n/1024) + " KB";
+    return (n/1024/1024).toFixed(1) + " MB";
+  }
+
+  function filesSectionHTML(id){
+    var files = allFiles.filter(function(f){ return f.project_id === id; });
+    var list = files.map(function(f){
+      var fui = uiState["file-" + f.id] || {};
+      var confirmBlock = fui.confirmDelete
+        ? '<span class="confirm-delete">Verwijderen?' +
+            '<button class="btn-text danger" data-action="confirm-delete-file" data-file-id="' + f.id + '">Ja</button>' +
+            '<button class="btn-text" data-action="cancel-delete-file" data-file-id="' + f.id + '">Nee</button>' +
+          '</span>'
+        : '<button class="btn-text" data-action="ask-delete-file" data-file-id="' + f.id + '">Verwijderen</button>';
+      return '<div class="file-item">' +
+        '<span class="file-name">&#128206; ' + esc(f.file_name) + '</span>' +
+        '<span class="file-size">' + fmtBytes(f.size_bytes) + '</span>' +
+        '<button class="btn-text" data-action="download-file" data-file-id="' + f.id + '">Downloaden</button>' +
+        confirmBlock +
+      '</div>';
+    }).join("") || '<p class="file-empty">Geen bestanden</p>';
+
+    return '<div>' +
+      '<p class="field-label">Bestanden</p>' +
+      '<div class="files-list">' + list + '</div>' +
+      '<button class="btn-text" data-action="upload-file" data-id="' + id + '" type="button">+ Bestand toevoegen</button>' +
+    '</div>';
+  }
+
+  function sessionsSectionHTML(id){
+    var sessions = allSessions.filter(function(s){ return s.project_id === id; });
+    if(sessions.length === 0) return "";
+    var list = sessions.map(function(s){
+      return '<div class="session-item">' +
+        '<button type="button" data-action="open-session" data-session-id="' + s.id + '">' + esc(s.title) + '</button>' +
+        '<span class="updated-at">' + esc(relTime(s.updated_at)) + '</span>' +
+      '</div>';
+    }).join("");
+    return '<div>' +
+      '<p class="field-label">Gesprekken</p>' +
+      '<div class="sessions-list">' + list + '</div>' +
+    '</div>';
   }
 
   function archiveRowHTML(p){
@@ -823,6 +901,7 @@
     emptyState.hidden = activeDocs().length > 0 || showAddForm;
     grid.innerHTML = newRowHTML() + sortedDocs().map(rowHTML).join("");
     renderArchive();
+    populateProjectSelects();
     restoreFocus(focus);
     if(showAddForm){
       var el = document.getElementById("new-project-name");
@@ -948,6 +1027,48 @@
     if(action === "toggle-archive"){
       archiveOpen = !archiveOpen;
       render();
+      return;
+    }
+    if(action === "upload-file"){
+      uploadTargetProjectId = id;
+      document.getElementById("projectFileInput").click();
+      return;
+    }
+    if(action === "download-file"){
+      var fileId = actionEl.getAttribute("data-file-id");
+      var file = allFiles.find(function(f){ return f.id === fileId; });
+      if(!file) return;
+      supabaseClient.storage.from("project-files").createSignedUrl(file.storage_path, 3600).then(function(res){
+        if(res.data && res.data.signedUrl) window.open(res.data.signedUrl, "_blank");
+      });
+      return;
+    }
+    if(action === "ask-delete-file"){
+      var fid1 = actionEl.getAttribute("data-file-id");
+      uiState["file-" + fid1] = Object.assign({}, uiState["file-" + fid1], {confirmDelete:true});
+      render();
+      return;
+    }
+    if(action === "cancel-delete-file"){
+      var fid2 = actionEl.getAttribute("data-file-id");
+      uiState["file-" + fid2] = Object.assign({}, uiState["file-" + fid2], {confirmDelete:false});
+      render();
+      return;
+    }
+    if(action === "confirm-delete-file"){
+      var fid3 = actionEl.getAttribute("data-file-id");
+      var delFile = allFiles.find(function(f){ return f.id === fid3; });
+      if(delFile){
+        supabaseClient.storage.from("project-files").remove([delFile.storage_path]).then(function(){
+          return supabaseClient.from("project_files").delete().eq("id", fid3);
+        }).then(function(){
+          return loadProjectFiles();
+        }).then(render);
+      }
+      return;
+    }
+    if(action === "open-session"){
+      openSession(actionEl.getAttribute("data-session-id"));
       return;
     }
     if(action === "create-project"){
@@ -1109,33 +1230,50 @@
   var chatHistory = [];
   var stagedFile = null;
   var currentSessionId = null;
+  var allSessions = [];
   var sessionSelect = document.getElementById("sessionSelect");
+  var sessionProjectSelect = document.getElementById("sessionProjectSelect");
   var saveSessionBtn = document.getElementById("saveSessionBtn");
   var newSessionBtn = document.getElementById("newSessionBtn");
 
+  function populateProjectSelects(){
+    var current = sessionProjectSelect.value;
+    sessionProjectSelect.innerHTML = '<option value="">Geen project</option>' + docs.map(function(d){
+      return '<option value="' + d.id + '">' + esc(d.name) + '</option>';
+    }).join("");
+    sessionProjectSelect.value = current;
+  }
+
   async function loadSessions(){
-    var res = await supabaseClient.from("chat_sessions").select("id, title, updated_at").order("updated_at", {ascending:false});
-    var sessions = res.data || [];
-    sessionSelect.innerHTML = '<option value="">&mdash; Nieuw gesprek &mdash;</option>' + sessions.map(function(s){
+    var res = await supabaseClient.from("chat_sessions").select("*").order("updated_at", {ascending:false});
+    allSessions = res.data || [];
+    sessionSelect.innerHTML = '<option value="">&mdash; Nieuw gesprek &mdash;</option>' + allSessions.map(function(s){
       return '<option value="' + s.id + '">' + esc(s.title) + '</option>';
     }).join("");
     sessionSelect.value = currentSessionId || "";
   }
 
-  sessionSelect.addEventListener("change", async function(){
+  function openSession(id){
+    var found = allSessions.find(function(s){ return s.id === id; });
+    if(!found) return;
+    currentSessionId = found.id;
+    chatHistory = found.messages || [];
+    sessionSelect.value = found.id;
+    sessionProjectSelect.value = found.project_id || "";
+    renderChat();
+    document.querySelector(".ask-card").scrollIntoView({behavior:"smooth", block:"start"});
+  }
+
+  sessionSelect.addEventListener("change", function(){
     var id = sessionSelect.value;
     if(!id){
       currentSessionId = null;
       chatHistory = [];
+      sessionProjectSelect.value = "";
       renderChat();
       return;
     }
-    var res = await supabaseClient.from("chat_sessions").select("*").eq("id", id).single();
-    if(res.data){
-      currentSessionId = res.data.id;
-      chatHistory = res.data.messages || [];
-      renderChat();
-    }
+    openSession(id);
   });
 
   newSessionBtn.addEventListener("click", function(){
@@ -1144,15 +1282,18 @@
     stagedFile = null;
     showAttachedChip();
     sessionSelect.value = "";
+    sessionProjectSelect.value = "";
     renderChat();
   });
 
   saveSessionBtn.addEventListener("click", async function(){
     var cleanHistory = chatHistory.filter(function(m){ return !m.pending; });
     if(cleanHistory.length === 0) return;
+    var projectId = sessionProjectSelect.value || null;
     if(currentSessionId){
       await supabaseClient.from("chat_sessions").update({
         messages: cleanHistory,
+        project_id: projectId,
         updated_at: new Date().toISOString()
       }).eq("id", currentSessionId);
     } else {
@@ -1160,7 +1301,7 @@
       var suggestion = firstMsg.display || (typeof firstMsg.content === "string" ? firstMsg.content : "Gesprek");
       var title = window.prompt("Naam voor dit gesprek:", suggestion.slice(0, 40));
       if(!title) return;
-      var res = await supabaseClient.from("chat_sessions").insert({title: title, messages: cleanHistory}).select().single();
+      var res = await supabaseClient.from("chat_sessions").insert({title: title, messages: cleanHistory, project_id: projectId}).select().single();
       if(res.data) currentSessionId = res.data.id;
     }
     await loadSessions();
@@ -1227,6 +1368,32 @@
     showAttachedChip();
   });
 
+  var projectFileInput = document.getElementById("projectFileInput");
+  projectFileInput.addEventListener("change", async function(){
+    var file = projectFileInput.files[0];
+    projectFileInput.value = "";
+    if(!file || !uploadTargetProjectId || !currentUserId) return;
+    var MAX_BYTES = 20 * 1024 * 1024;
+    if(file.size > MAX_BYTES){
+      window.alert("Bestand is te groot (max 20MB).");
+      return;
+    }
+    var path = currentUserId + "/" + uploadTargetProjectId + "/" + Date.now() + "_" + file.name;
+    var upRes = await supabaseClient.storage.from("project-files").upload(path, file);
+    if(upRes.error){
+      window.alert("Upload mislukt: " + upRes.error.message);
+      return;
+    }
+    await supabaseClient.from("project_files").insert({
+      project_id: uploadTargetProjectId,
+      file_name: file.name,
+      storage_path: path,
+      size_bytes: file.size
+    });
+    await loadProjectFiles();
+    render();
+  });
+
   askForm.addEventListener("submit", async function(e){
     e.preventDefault();
     var text = askInput.value.trim();
@@ -1289,8 +1456,10 @@
     authScreen.hidden = true;
     appScreen.hidden = false;
     sessionEmail.textContent = session && session.user ? session.user.email : "";
+    currentUserId = session && session.user ? session.user.id : null;
     loadProjects().then(render);
-    loadSessions();
+    loadSessions().then(render);
+    loadProjectFiles().then(render);
   }
 
   supabaseClient.auth.onAuthStateChange(function(event, session){
