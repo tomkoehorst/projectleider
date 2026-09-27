@@ -164,7 +164,7 @@
     background:var(--border);
     border:1px solid var(--border);
     border-radius:10px;
-    overflow:hidden;
+    overflow:visible;
     margin-bottom:20px;
   }
   .stat{background:var(--surface);padding:14px 16px;}
@@ -399,6 +399,40 @@
   .mini-progress{height:5px;border-radius:999px;background:var(--border);margin-top:8px;overflow:hidden;}
   .mini-progress-fill{height:100%;background:var(--accent);border-radius:999px;}
   .score-qualifier{font-size:12px;color:var(--text-muted);margin-top:2px;}
+
+  .score-tile{position:relative;cursor:help;}
+  .score-tooltip{
+    position:absolute;top:100%;right:0;margin-top:8px;
+    width:270px;max-width:80vw;
+    background:var(--surface);
+    border:1px solid var(--border-strong);
+    border-radius:10px;
+    box-shadow:var(--shadow);
+    padding:14px 16px;
+    z-index:30;
+    text-align:left;
+    opacity:0;visibility:hidden;
+    transform:translateY(-4px);
+    transition:opacity .12s ease, transform .12s ease;
+  }
+  .score-tile:hover .score-tooltip,
+  .score-tile:focus .score-tooltip,
+  .score-tile:focus-within .score-tooltip{
+    opacity:1;visibility:visible;transform:translateY(0);
+  }
+  .score-tooltip-title{font-size:12px;font-weight:600;margin:0 0 8px;}
+  .score-tooltip-label{
+    font-size:11px;text-transform:uppercase;letter-spacing:0.05em;
+    color:var(--text-faint);margin:8px 0 4px;
+  }
+  .score-tooltip ul{margin:0;padding-left:18px;}
+  .score-tooltip li{font-size:12.5px;margin-bottom:2px;}
+  .score-tooltip-ok{font-size:12.5px;color:var(--good);margin:4px 0;}
+  .score-tooltip-tip{
+    font-size:12.5px;color:var(--text-muted);
+    margin:10px 0 0;padding-top:10px;
+    border-top:1px solid var(--border);
+  }
   .chat-log{
     display:flex;flex-direction:column;gap:10px;
     max-height:360px;overflow-y:auto;
@@ -679,6 +713,13 @@
     return Math.round((targetUTC - todayUTC) / 86400000);
   }
 
+  function daysSince(iso){
+    if(!iso) return null;
+    var then = new Date(iso).getTime();
+    if(isNaN(then)) return null;
+    return Math.floor((Date.now() - then) / 86400000);
+  }
+
   function milestoneSummary(p){
     if(p.milestone_date){
       var days = daysUntil(p.milestone_date);
@@ -759,6 +800,43 @@
     var score = Math.round(healthAvg * 0.7 + freshPct * 0.3);
     var scoreQualifier = score >= 80 ? "Sterk" : score >= 55 ? "Redelijk" : "Aandacht nodig";
 
+    var STALE_DAYS = 14;
+    var needsAttention = active
+      .filter(function(p){ return healthBucket(getHealth(p)).label !== "Op schema"; })
+      .sort(function(a,b){ return getHealth(a) - getHealth(b); });
+    var stale = active
+      .filter(function(p){ var d = daysSince(p.updated_at); return d === null || d > STALE_DAYS; })
+      .sort(function(a,b){ return (daysSince(b.updated_at) || 999) - (daysSince(a.updated_at) || 999); });
+
+    var attentionHTML = needsAttention.length
+      ? '<p class="score-tooltip-label">Aandacht nodig</p><ul>' + needsAttention.map(function(p){
+          return '<li>' + esc(p.name) + ' &mdash; ' + getHealth(p) + '%</li>';
+        }).join("") + '</ul>'
+      : '<p class="score-tooltip-ok">&#10003; Geen projecten met risico/aandacht</p>';
+
+    var staleHTML = stale.length
+      ? '<p class="score-tooltip-label">Lang niet bijgewerkt (&gt;' + STALE_DAYS + ' dagen)</p><ul>' + stale.map(function(p){
+          var d = daysSince(p.updated_at);
+          return '<li>' + esc(p.name) + ' &mdash; ' + (d === null ? "nooit" : d + " dagen geleden") + '</li>';
+        }).join("") + '</ul>'
+      : '<p class="score-tooltip-ok">&#10003; Alles is recent bijgewerkt</p>';
+
+    var actionNames = [];
+    needsAttention.concat(stale).forEach(function(p){
+      if(actionNames.indexOf(p.name) === -1) actionNames.push(p.name);
+    });
+    var tipText = actionNames.length
+      ? "Werk " + actionNames.slice(0,3).map(function(n){ return "'" + n + "'"; }).join(", ") + " bij om je score te verhogen."
+      : "Sterk bezig — niets dat meteen aandacht nodig heeft.";
+
+    var scoreTooltip =
+      '<div class="score-tooltip">' +
+        '<p class="score-tooltip-title">Wat bepaalt deze score?</p>' +
+        attentionHTML +
+        staleHTML +
+        '<p class="score-tooltip-tip">' + esc(tipText) + '</p>' +
+      '</div>';
+
     statsEl.innerHTML =
       '<div class="stat"><p class="stat-label">Projecten</p><p class="stat-value">' + total + '</p></div>' +
       '<div class="stat"><p class="stat-label">Op schema</p><p class="stat-value">' + good + '</p></div>' +
@@ -770,8 +848,10 @@
         '</p><p class="stat-sub">' + (next ? fmtDate(next.milestone_date) : "Geen mijlpalen gepland") + '</p></div>' +
       '<div class="stat"><p class="stat-label">Deze week bijgewerkt</p><p class="stat-value">' + freshCount + '/' + total + '</p>' +
         '<div class="mini-progress"><div class="mini-progress-fill" style="width:' + freshPct + '%"></div></div></div>' +
-      '<div class="stat"><p class="stat-label">Dashboard-score</p><p class="stat-value">' + score + '</p>' +
-        '<p class="score-qualifier">' + scoreQualifier + '</p></div>';
+      '<div class="stat score-tile" tabindex="0"><p class="stat-label">Dashboard-score</p><p class="stat-value">' + score + '</p>' +
+        '<p class="score-qualifier">' + scoreQualifier + '</p>' +
+        scoreTooltip +
+      '</div>';
   }
 
   function detailHTML(id, p, ui, todos){
