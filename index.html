@@ -377,6 +377,28 @@
     margin-top:8px;cursor:pointer;
   }
   .deep-toggle input{accent-color:var(--accent);}
+
+  .chat-presets{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;}
+  .attach-btn.recording{background:var(--risk-bg);color:var(--risk);}
+
+  .recap-banner{
+    background:var(--accent-soft);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px 16px;
+    font-size:13.5px;
+    color:var(--text);
+    margin-bottom:20px;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+  }
+  .recap-banner button{
+    background:none;border:none;color:var(--text-faint);
+    cursor:pointer;font-size:16px;line-height:1;padding:0;flex:none;
+  }
+
+  .mini-progress{height:5px;border-radius:999px;background:var(--border);margin-top:8px;overflow:hidden;}
+  .mini-progress-fill{height:100%;background:var(--accent);border-radius:999px;}
+  .score-qualifier{font-size:12px;color:var(--text-muted);margin-top:2px;}
   .chat-log{
     display:flex;flex-direction:column;gap:10px;
     max-height:360px;overflow-y:auto;
@@ -466,6 +488,8 @@
       <button class="btn-primary" id="addProjectBtn" type="button">+ Nieuw project</button>
     </div>
 
+    <div class="recap-banner" id="recapBanner" hidden></div>
+
     <div class="stats" id="stats"></div>
 
     <div class="ask-card">
@@ -478,9 +502,14 @@
         <button type="button" id="deleteSessionBtn" class="btn-text danger">Verwijder gesprek</button>
       </div>
       <div class="chat-log" id="chatLog"></div>
+      <div class="chat-presets">
+        <button type="button" id="weekUpdateBtn" class="btn-text">&#128197; Weekupdate starten</button>
+        <button type="button" id="meetingNotesBtn" class="btn-text">&#128221; Vergaderverslag verwerken</button>
+      </div>
       <div class="attached-chip" id="attachedChip" hidden></div>
       <form id="askForm" class="ask-row">
         <button type="button" id="attachBtn" class="attach-btn" title="Bestand bijvoegen">&#128206;</button>
+        <button type="button" id="micBtn" class="attach-btn" title="Inspreken">&#127908;</button>
         <textarea id="askInput" placeholder="Bijv. help me een agenda voorbereiden voor het overleg over Wizzportaal"></textarea>
         <button type="submit" class="btn-primary">Vraag</button>
       </form>
@@ -536,6 +565,7 @@
   var grid = document.getElementById("grid");
   var archiveWrap = document.getElementById("archiveWrap");
   var statsEl = document.getElementById("stats");
+  var recapBanner = document.getElementById("recapBanner");
   var emptyState = document.getElementById("emptyState");
   var offlineState = document.getElementById("offlineState");
   var addBtn = document.getElementById("addProjectBtn");
@@ -553,6 +583,48 @@
   async function loadProjectFiles(){
     var res = await supabaseClient.from("project_files").select("*").order("uploaded_at", {ascending:false});
     allFiles = res.data || [];
+  }
+
+  var ACTION_LABELS = {
+    add_todo: "to do’s toegevoegd",
+    complete_todo: "to do’s afgerond",
+    delete_todo: "to do’s verwijderd",
+    update_status: "keer status bijgewerkt",
+    update_note: "notities bijgewerkt",
+    set_milestone: "mijlpalen aangepast",
+    add_project: "nieuwe projecten",
+    archive_project: "projecten afgerond"
+  };
+
+  async function loadAndRenderRecap(){
+    var weekStart = startOfWeek();
+    var res = await supabaseClient.from("activity_log")
+      .select("action")
+      .gte("created_at", weekStart.toISOString());
+    var rows = res.data || [];
+    if(rows.length === 0){ recapBanner.hidden = true; return; }
+
+    var counts = {};
+    rows.forEach(function(r){ counts[r.action] = (counts[r.action] || 0) + 1; });
+    var parts = Object.keys(counts)
+      .filter(function(k){ return ACTION_LABELS[k]; })
+      .map(function(k){ return counts[k] + " " + ACTION_LABELS[k]; });
+    if(parts.length === 0){ recapBanner.hidden = true; return; }
+
+    var active = activeDocs();
+    var freshCount = active.filter(function(p){ return p.updated_at && new Date(p.updated_at) >= weekStart; }).length;
+    var allFresh = active.length > 0 && freshCount === active.length;
+
+    var text = "Sinds maandag: " + parts.join(", ") + ".";
+    if(allFresh) text += " \u{1F389} Alle projecten zijn deze week bijgewerkt — mooi bezig!";
+
+    recapBanner.innerHTML =
+      '<span>' + esc(text) + '</span>' +
+      '<button type="button" id="closeRecapBtn" title="Sluiten">&times;</button>';
+    recapBanner.hidden = false;
+    document.getElementById("closeRecapBtn").addEventListener("click", function(){
+      recapBanner.hidden = true;
+    });
   }
 
   function activeDocs(){ return docs.filter(function(d){ return !d.archived; }); }
@@ -653,6 +725,15 @@
     });
   }
 
+  function startOfWeek(){
+    var d = new Date();
+    var day = d.getDay();
+    var diff = (day === 0 ? -6 : 1) - day;
+    d.setDate(d.getDate() + diff);
+    d.setHours(0,0,0,0);
+    return d;
+  }
+
   function renderStats(){
     var active = activeDocs();
     var total = active.length;
@@ -670,6 +751,14 @@
       .sort(function(a,b){ return a.milestone_date < b.milestone_date ? -1 : 1; });
     var next = upcoming.find(function(p){ return p.milestone_date >= today; }) || upcoming[0];
 
+    var weekStart = startOfWeek();
+    var freshCount = active.filter(function(p){ return p.updated_at && new Date(p.updated_at) >= weekStart; }).length;
+    var freshPct = total ? Math.round(freshCount/total*100) : 0;
+
+    var healthAvg = total ? active.reduce(function(s,d){ return s + getHealth(d); }, 0) / total : 0;
+    var score = Math.round(healthAvg * 0.7 + freshPct * 0.3);
+    var scoreQualifier = score >= 80 ? "Sterk" : score >= 55 ? "Redelijk" : "Aandacht nodig";
+
     statsEl.innerHTML =
       '<div class="stat"><p class="stat-label">Projecten</p><p class="stat-value">' + total + '</p></div>' +
       '<div class="stat"><p class="stat-label">Op schema</p><p class="stat-value">' + good + '</p></div>' +
@@ -678,7 +767,11 @@
       '<div class="stat"><p class="stat-label">Open to do&rsquo;s</p><p class="stat-value">' + openTodoCount + '</p></div>' +
       '<div class="stat"><p class="stat-label">Eerstvolgende mijlpaal</p><p class="stat-value" style="font-size:15px;">' +
         (next ? esc(next.name) : "&ndash;") +
-        '</p><p class="stat-sub">' + (next ? fmtDate(next.milestone_date) : "Geen mijlpalen gepland") + '</p></div>';
+        '</p><p class="stat-sub">' + (next ? fmtDate(next.milestone_date) : "Geen mijlpalen gepland") + '</p></div>' +
+      '<div class="stat"><p class="stat-label">Deze week bijgewerkt</p><p class="stat-value">' + freshCount + '/' + total + '</p>' +
+        '<div class="mini-progress"><div class="mini-progress-fill" style="width:' + freshPct + '%"></div></div></div>' +
+      '<div class="stat"><p class="stat-label">Dashboard-score</p><p class="stat-value">' + score + '</p>' +
+        '<p class="score-qualifier">' + scoreQualifier + '</p></div>';
   }
 
   function detailHTML(id, p, ui, todos){
@@ -1362,6 +1455,41 @@
 
   attachBtn.addEventListener("click", function(){ fileInput.click(); });
 
+  var micBtn = document.getElementById("micBtn");
+  var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var recognition = null;
+  if(SpeechRecognitionCtor){
+    recognition = new SpeechRecognitionCtor();
+    recognition.lang = "nl-NL";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.onresult = function(e){
+      var text = e.results[0][0].transcript;
+      askInput.value = (askInput.value ? askInput.value.trim() + " " : "") + text;
+      askInput.focus();
+    };
+    recognition.onend = function(){ micBtn.classList.remove("recording"); };
+    recognition.onerror = function(){ micBtn.classList.remove("recording"); };
+    micBtn.addEventListener("click", function(){
+      micBtn.classList.add("recording");
+      try{ recognition.start(); }catch(e){ micBtn.classList.remove("recording"); }
+    });
+  } else {
+    micBtn.hidden = true;
+  }
+
+  var weekUpdateBtn = document.getElementById("weekUpdateBtn");
+  weekUpdateBtn.addEventListener("click", function(){
+    askInput.value = "Doe een weekupdate-ronde met me: loop kort langs al mijn actieve projecten en vraag me per project of er iets veranderd is (status, mijlpaal, to do's, notitie). Verwerk mijn antwoorden direct met de tools.";
+    askForm.requestSubmit();
+  });
+
+  var meetingNotesBtn = document.getElementById("meetingNotesBtn");
+  meetingNotesBtn.addEventListener("click", function(){
+    askInput.value = "Dit is een vergaderverslag/notitie. Haal er per project de relevante updates uit (status, mijlpalen, to do's, besluiten) en verwerk die direct met de tools. Geef daarna een korte samenvatting van wat je hebt aangepast.";
+    askInput.focus();
+  });
+
   fileInput.addEventListener("change", async function(){
     var file = fileInput.files[0];
     fileInput.value = "";
@@ -1474,7 +1602,7 @@
     appScreen.hidden = false;
     sessionEmail.textContent = session && session.user ? session.user.email : "";
     currentUserId = session && session.user ? session.user.id : null;
-    loadProjects().then(render);
+    loadProjects().then(render).then(loadAndRenderRecap);
     loadSessions().then(render);
     loadProjectFiles().then(render);
   }
