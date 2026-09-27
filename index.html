@@ -392,10 +392,11 @@
     background:var(--accent-soft);
     border-radius:0 8px 8px 0;
   }
+  .quote-text{margin:0;}
   .quote-author-wrap{
     position:relative;
     display:inline-block;
-    margin-top:5px;
+    margin-top:6px;
     cursor:help;
   }
   .daily-quote .quote-author{
@@ -703,7 +704,7 @@
     var dayOfYear = Math.floor((now - start) / 86400000);
     var q = DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length];
     var fact = AUTHOR_FACTS[q.author];
-    el.innerHTML = "“" + esc(q.text) + "”" +
+    el.innerHTML = '<p class="quote-text">“' + esc(q.text) + '”</p>' +
       '<span class="quote-author-wrap" tabindex="0">' +
         '<span class="quote-author">' + esc(q.author) + '</span>' +
         (fact ? '<span class="author-tooltip">' + esc(fact) + '</span>' : '') +
