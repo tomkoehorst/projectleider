@@ -381,6 +381,27 @@
   .chat-presets{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;}
   .attach-btn.recording{background:var(--risk-bg);color:var(--risk);}
 
+  .daily-quote{
+    border-left:3px solid var(--accent);
+    padding:10px 16px;
+    margin-bottom:20px;
+    font-style:italic;
+    font-size:14.5px;
+    line-height:1.5;
+    color:var(--text);
+    background:var(--accent-soft);
+    border-radius:0 8px 8px 0;
+  }
+  .daily-quote .quote-author{
+    display:block;
+    margin-top:5px;
+    font-style:normal;
+    font-size:11px;
+    color:var(--text-faint);
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+  }
+
   .recap-banner{
     background:var(--accent-soft);
     border:1px solid var(--border);
@@ -522,6 +543,8 @@
       <button class="btn-primary" id="addProjectBtn" type="button">+ Nieuw project</button>
     </div>
 
+    <div class="daily-quote" id="dailyQuote"></div>
+
     <div class="recap-banner" id="recapBanner" hidden></div>
 
     <div class="stats" id="stats"></div>
@@ -580,6 +603,51 @@
   ];
 
   var MONTHS = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+
+  var DAILY_QUOTES = [
+    {text:"Je hebt macht over je gedachten, niet over uiterlijke gebeurtenissen — besef dat, en je vindt kracht.", author:"Marcus Aurelius"},
+    {text:"Het is niet dat we weinig tijd hebben, maar dat we er veel van verspillen.", author:"Seneca"},
+    {text:"Mensen worden niet verontrust door wat er gebeurt, maar door wat ze ervan denken.", author:"Epictetus"},
+    {text:"Wat een hindernis lijkt, wordt vaak de weg vooruit.", author:"Marcus Aurelius"},
+    {text:"Het geluk van je leven hangt af van de kwaliteit van je gedachten.", author:"Marcus Aurelius"},
+    {text:"Niemand is vrij die geen meester is over zichzelf.", author:"Epictetus"},
+    {text:"Wij lijden vaker in verbeelding dan in werkelijkheid.", author:"Seneca"},
+    {text:"Verspil geen tijd meer met discussiëren over hoe een goed mens zou moeten zijn — wees er een.", author:"Marcus Aurelius"},
+    {text:"Fortuna favet fortibus — het geluk is met de dapperen.", author:"Romeins gezegde"},
+    {text:"Wie zichzelf overwint, is sterker dan wie een stad inneemt.", author:"naar Cato de Oudere"},
+    {text:"Carpe diem — pluk de dag, vertrouw zo min mogelijk op morgen.", author:"Horatius"},
+    {text:"Alea iacta est — de teerling is geworpen. Soms moet je gewoon beginnen.", author:"Julius Caesar"},
+    {text:"Een goed begonnen taak is half gedaan.", author:"Romeins gezegde"},
+    {text:"Het wint aan kracht terwijl het voortgaat — begin klein, bouw op.", author:"naar Vergilius"},
+    {text:"Wie voorbereid is, heeft de helft van de strijd al gewonnen.", author:"naar Publilius Syrus"},
+    {text:"Festina lente — haast je langzaam.", author:"Augustus"},
+    {text:"Nana korobi ya oki — zeven keer vallen, acht keer opstaan.", author:"Japans gezegde"},
+    {text:"Een reis van duizend mijl begint met één stap.", author:"Japans/Chinees gezegde"},
+    {text:"Ichigo ichie — koester dit moment, het komt nooit meer terug.", author:"Japans levensprincipe"},
+    {text:"Kaizen: kleine, dagelijkse verbetering wint het van perfectie in één keer.", author:"Japanse werkfilosofie"},
+    {text:"De bamboe die buigt is sterker dan de eik die breekt.", author:"Japans gezegde"},
+    {text:"Ganbatte — geef je uiterste best, ook als het zwaar is.", author:"Japanse aanmoediging"},
+    {text:"Wabi-sabi: schoonheid zit in het onvolmaakte en vergankelijke — een dag hoeft niet perfect te zijn om waardevol te zijn.", author:"Japans esthetisch principe"},
+    {text:"Vertrouw niet op wat je gisteren deed; vertrouw op wat je vandaag opnieuw doet.", author:"naar Japanse werkethos"},
+    {text:"Alles om je heen — een boom, een steen, een rivier — verdient eerbied. Behandel je werk vandaag met diezelfde aandacht.", author:"Shinto-principe"},
+    {text:"Harmonie (wa) begint bij hoe jij je eigen dag benadert.", author:"Shinto-gedachte"},
+    {text:"Makoto — oprechtheid in alles wat je doet, is de kern van een goed leven.", author:"Shinto-deugd"},
+    {text:"Misogi: was het overbodige van gisteren af en begin vandaag schoon.", author:"Shinto-reinigingsritueel"},
+    {text:"Dankbaarheid voor het gewone — het licht, het werk, de mensen om je heen — is het begin van een goede dag.", author:"Shinto-gedachte"},
+    {text:"Kami schuilt in de details; doe het kleine werk net zo zorgvuldig als het grote.", author:"Shinto-principe"},
+    {text:"Elk seizoen heeft zijn eigen les — wat leert dit moment jou?", author:"Shinto-natuurwijsheid"},
+    {text:"Stilte voor de actie: adem eerst, handel dan.", author:"Shinto-praktijk"}
+  ];
+
+  function renderDailyQuote(){
+    var el = document.getElementById("dailyQuote");
+    if(!el) return;
+    var now = new Date();
+    var start = new Date(now.getFullYear(), 0, 0);
+    var dayOfYear = Math.floor((now - start) / 86400000);
+    var q = DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length];
+    el.innerHTML = "“" + esc(q.text) + "”<span class=\"quote-author\">" + esc(q.author) + "</span>";
+  }
 
   function getHealth(p){ return typeof p.health === "number" ? p.health : 75; }
   function healthBucket(h){
@@ -1690,6 +1758,8 @@
   supabaseClient.auth.onAuthStateChange(function(event, session){
     if(session){ enterApp(session); } else { showAuthScreen(); }
   });
+
+  renderDailyQuote();
 })();
 </script>
 </body>
