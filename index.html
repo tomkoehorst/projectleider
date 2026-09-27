@@ -381,17 +381,27 @@
   .chat-presets{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;}
   .attach-btn.recording{background:var(--risk-bg);color:var(--risk);}
 
-  .daily-quote{
+  .briefing-card{
     border-left:3px solid var(--accent);
-    padding:10px 16px;
+    padding:14px 16px;
     margin-bottom:20px;
-    font-style:italic;
-    font-size:14.5px;
-    line-height:1.5;
-    color:var(--text);
     background:var(--accent-soft);
     border-radius:0 8px 8px 0;
   }
+  .briefing-label{
+    font-size:11px;text-transform:uppercase;letter-spacing:0.06em;
+    color:var(--text-faint);margin:0 0 8px;
+  }
+  .briefing-quote{font-style:italic;font-size:14.5px;line-height:1.5;color:var(--text);}
+  .briefing-section{
+    margin-top:12px;padding-top:12px;
+    border-top:1px solid var(--border);
+    font-style:normal;
+  }
+  .briefing-section-title{font-size:12px;font-weight:600;margin:0 0 6px;color:var(--text);}
+  .briefing-section p{margin:0;font-size:13.5px;line-height:1.5;}
+  .briefing-section ul{margin:0;padding-left:18px;}
+  .briefing-section li{font-size:13.5px;margin-bottom:3px;}
   .quote-text{margin:0;}
   .quote-author-wrap{
     position:relative;
@@ -399,7 +409,7 @@
     margin-top:6px;
     cursor:help;
   }
-  .daily-quote .quote-author{
+  .briefing-quote .quote-author{
     display:block;
     font-style:normal;
     font-size:11px;
@@ -433,19 +443,32 @@
     opacity:1;visibility:visible;transform:translateY(0);
   }
 
-  .recap-banner{
-    background:var(--accent-soft);
+  .milestones-card{
+    background:var(--surface);
     border:1px solid var(--border);
     border-radius:10px;
-    padding:12px 16px;
-    font-size:13.5px;
-    color:var(--text);
+    padding:14px 16px;
     margin-bottom:20px;
-    display:flex;align-items:center;justify-content:space-between;gap:12px;
   }
-  .recap-banner button{
-    background:none;border:none;color:var(--text-faint);
-    cursor:pointer;font-size:16px;line-height:1;padding:0;flex:none;
+  .milestone-row{
+    display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    padding:6px 0;
+    border-bottom:1px solid var(--border);
+    font-size:13.5px;
+  }
+  .milestone-row:last-child{border-bottom:none;}
+  .milestone-row-name{font-weight:500;}
+  .milestone-row-when{
+    color:var(--text-muted);font-family:"IBM Plex Mono",monospace;
+    font-size:12.5px;white-space:nowrap;
+  }
+  .milestone-row-when.urgent{color:var(--risk);}
+  .milestone-empty{font-size:13.5px;color:var(--text-muted);margin:0;}
+
+  .undo-bar{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:var(--warn-bg);border:1px solid var(--border);
+    border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:13px;
   }
 
   .mini-progress{height:5px;border-radius:999px;background:var(--border);margin-top:8px;overflow:hidden;}
@@ -574,9 +597,14 @@
       <button class="btn-primary" id="addProjectBtn" type="button">+ Nieuw project</button>
     </div>
 
-    <div class="daily-quote" id="dailyQuote"></div>
+    <div class="briefing-card">
+      <p class="briefing-label">Ochtendbriefing</p>
+      <div class="briefing-quote" id="briefingQuote"></div>
+      <div class="briefing-section" id="briefingFocus"></div>
+      <div class="briefing-section" id="briefingRecap" hidden></div>
+    </div>
 
-    <div class="recap-banner" id="recapBanner" hidden></div>
+    <div class="milestones-card" id="milestonesCard"></div>
 
     <div class="stats" id="stats"></div>
 
@@ -590,6 +618,10 @@
         <button type="button" id="deleteSessionBtn" class="btn-text danger">Verwijder gesprek</button>
       </div>
       <div class="chat-log" id="chatLog"></div>
+      <div class="undo-bar" id="undoBar" hidden>
+        <span id="undoLabel"></span>
+        <button type="button" id="undoBtn" class="btn-text danger">Ongedaan maken</button>
+      </div>
       <div class="chat-presets">
         <button type="button" id="weekUpdateBtn" class="btn-text">&#128197; Weekupdate starten</button>
         <button type="button" id="meetingNotesBtn" class="btn-text">&#128221; Vergaderverslag verwerken</button>
@@ -697,7 +729,7 @@
   };
 
   function renderDailyQuote(){
-    var el = document.getElementById("dailyQuote");
+    var el = document.getElementById("briefingQuote");
     if(!el) return;
     var now = new Date();
     var start = new Date(now.getFullYear(), 0, 0);
@@ -729,7 +761,7 @@
   var grid = document.getElementById("grid");
   var archiveWrap = document.getElementById("archiveWrap");
   var statsEl = document.getElementById("stats");
-  var recapBanner = document.getElementById("recapBanner");
+  var recapSection = document.getElementById("briefingRecap");
   var emptyState = document.getElementById("emptyState");
   var offlineState = document.getElementById("offlineState");
   var addBtn = document.getElementById("addProjectBtn");
@@ -766,14 +798,14 @@
       .select("action")
       .gte("created_at", weekStart.toISOString());
     var rows = res.data || [];
-    if(rows.length === 0){ recapBanner.hidden = true; return; }
+    if(rows.length === 0){ recapSection.hidden = true; return; }
 
     var counts = {};
     rows.forEach(function(r){ counts[r.action] = (counts[r.action] || 0) + 1; });
     var parts = Object.keys(counts)
       .filter(function(k){ return ACTION_LABELS[k]; })
       .map(function(k){ return counts[k] + " " + ACTION_LABELS[k]; });
-    if(parts.length === 0){ recapBanner.hidden = true; return; }
+    if(parts.length === 0){ recapSection.hidden = true; return; }
 
     var active = activeDocs();
     var freshCount = active.filter(function(p){ return p.updated_at && new Date(p.updated_at) >= weekStart; }).length;
@@ -782,13 +814,77 @@
     var text = "Sinds maandag: " + parts.join(", ") + ".";
     if(allFresh) text += " \u{1F389} Alle projecten zijn deze week bijgewerkt — mooi bezig!";
 
-    recapBanner.innerHTML =
-      '<span>' + esc(text) + '</span>' +
-      '<button type="button" id="closeRecapBtn" title="Sluiten">&times;</button>';
-    recapBanner.hidden = false;
-    document.getElementById("closeRecapBtn").addEventListener("click", function(){
-      recapBanner.hidden = true;
+    recapSection.innerHTML = '<p class="briefing-section-title">Deze week</p><p>' + esc(text) + '</p>';
+    recapSection.hidden = false;
+  }
+
+  function renderFocusToday(){
+    var el = document.getElementById("briefingFocus");
+    if(!el) return;
+    var active = activeDocs();
+    var today = todayISO();
+    var STALE_DAYS = 14;
+    var items = [];
+
+    active.forEach(function(p){
+      if(p.milestone_date && p.milestone_date < today){
+        items.push({priority:0, text: esc(p.name) + " — mijlpaal is " + Math.abs(daysUntil(p.milestone_date)) + " dagen te laat"});
+      }
     });
+    active.forEach(function(p){
+      if(p.milestone_date && p.milestone_date >= today){
+        var d = daysUntil(p.milestone_date);
+        if(d <= 3){
+          items.push({priority:1, text: esc(p.name) + " — mijlpaal " + (d===0?"vandaag":d===1?"morgen":"over " + d + " dagen")});
+        }
+      }
+      if(getHealth(p) < 34){
+        items.push({priority:1, text: esc(p.name) + " — status risico (" + getHealth(p) + "%)"});
+      }
+    });
+    active.forEach(function(p){
+      var d = daysSince(p.updated_at);
+      if(d !== null && d > STALE_DAYS){
+        items.push({priority:2, text: esc(p.name) + " — " + d + " dagen niet bijgewerkt"});
+      }
+    });
+
+    var seen = {};
+    items = items.filter(function(it){
+      if(seen[it.text]) return false;
+      seen[it.text] = true;
+      return true;
+    }).sort(function(a,b){ return a.priority - b.priority; }).slice(0,3);
+
+    if(items.length === 0){
+      el.innerHTML = '<p class="briefing-section-title">Focus vandaag</p><p>Niets dringends — goed moment om rustig vooruit te kijken.</p>';
+      return;
+    }
+    el.innerHTML = '<p class="briefing-section-title">Focus vandaag</p><ul>' +
+      items.map(function(it){ return '<li>' + it.text + '</li>'; }).join("") + '</ul>';
+  }
+
+  function renderMilestonesTimeline(){
+    var el = document.getElementById("milestonesCard");
+    if(!el) return;
+    var today = todayISO();
+    var upcoming = activeDocs()
+      .filter(function(p){ return p.milestone_date && p.milestone_date >= today; })
+      .sort(function(a,b){ return a.milestone_date < b.milestone_date ? -1 : 1; })
+      .slice(0,5);
+    if(upcoming.length === 0){
+      el.innerHTML = '<p class="briefing-label">Aankomende mijlpalen</p><p class="milestone-empty">Geen geplande mijlpalen.</p>';
+      return;
+    }
+    el.innerHTML = '<p class="briefing-label">Aankomende mijlpalen</p>' +
+      upcoming.map(function(p){
+        var ms = milestoneSummary(p);
+        var desc = p.milestone_text ? esc(p.milestone_text) : '';
+        return '<div class="milestone-row">' +
+          '<span class="milestone-row-name">' + esc(p.name) + (desc ? ' &middot; ' + desc : '') + '</span>' +
+          '<span class="milestone-row-when' + (ms.urgent ? ' urgent' : '') + '">' + esc(ms.text) + ' &middot; ' + fmtDate(p.milestone_date) + '</span>' +
+        '</div>';
+      }).join("");
   }
 
   function activeDocs(){ return docs.filter(function(d){ return !d.archived; }); }
@@ -1202,6 +1298,8 @@
   function render(){
     var focus = saveFocus();
     renderStats();
+    renderMilestonesTimeline();
+    renderFocusToday();
     emptyState.hidden = activeDocs().length > 0 || showAddForm;
     grid.innerHTML = newRowHTML() + sortedDocs().map(rowHTML).join("");
     renderArchive();
@@ -1539,6 +1637,43 @@
   var sessionProjectSelect = document.getElementById("sessionProjectSelect");
   var saveSessionBtn = document.getElementById("saveSessionBtn");
   var newSessionBtn = document.getElementById("newSessionBtn");
+  var undoBar = document.getElementById("undoBar");
+  var undoLabel = document.getElementById("undoLabel");
+  var undoBtn = document.getElementById("undoBtn");
+  var lastUndo = null;
+
+  function showUndo(undo){
+    lastUndo = (undo && undo.length) ? undo : null;
+    if(lastUndo){
+      undoLabel.textContent = lastUndo.length === 1
+        ? "Laatste wijziging ongedaan maken?"
+        : lastUndo.length + " wijzigingen ongedaan maken?";
+      undoBar.hidden = false;
+    } else {
+      undoBar.hidden = true;
+    }
+  }
+  function hideUndo(){
+    lastUndo = null;
+    undoBar.hidden = true;
+  }
+
+  undoBtn.addEventListener("click", async function(){
+    if(!lastUndo) return;
+    undoBtn.disabled = true;
+    for(var i=0;i<lastUndo.length;i++){
+      var u = lastUndo[i];
+      if(u.action === "delete"){
+        await supabaseClient.from("projects").delete().eq("id", u.id);
+      } else if(u.action === "restore" && u.before){
+        await supabaseClient.from("projects").update(u.before).eq("id", u.id);
+      }
+    }
+    undoBtn.disabled = false;
+    hideUndo();
+    await loadProjects();
+    render();
+  });
 
   function populateProjectSelects(){
     var current = sessionProjectSelect.value;
@@ -1564,6 +1699,7 @@
     chatHistory = found.messages || [];
     sessionSelect.value = found.id;
     sessionProjectSelect.value = found.project_id || "";
+    hideUndo();
     renderChat();
     document.querySelector(".ask-card").scrollIntoView({behavior:"smooth", block:"start"});
   }
@@ -1574,6 +1710,7 @@
       currentSessionId = null;
       chatHistory = [];
       sessionProjectSelect.value = "";
+      hideUndo();
       renderChat();
       return;
     }
@@ -1587,6 +1724,7 @@
     showAttachedChip();
     sessionSelect.value = "";
     sessionProjectSelect.value = "";
+    hideUndo();
     renderChat();
   });
 
@@ -1601,6 +1739,7 @@
     currentSessionId = null;
     chatHistory = [];
     sessionProjectSelect.value = "";
+    hideUndo();
     await loadSessions();
     render();
     renderChat();
@@ -1789,6 +1928,7 @@
       chatHistory.push({role:"assistant", content:"Er ging iets mis. Probeer het opnieuw.", error:true});
     } else {
       chatHistory.push({role:"assistant", content: (res.data && res.data.answer) ? res.data.answer : "Geen antwoord ontvangen."});
+      showUndo(res.data && res.data.undo);
       await loadProjects();
       render();
     }
