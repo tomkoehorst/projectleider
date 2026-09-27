@@ -392,14 +392,44 @@
     background:var(--accent-soft);
     border-radius:0 8px 8px 0;
   }
+  .quote-author-wrap{
+    position:relative;
+    display:inline-block;
+    margin-top:5px;
+    cursor:help;
+  }
   .daily-quote .quote-author{
     display:block;
-    margin-top:5px;
     font-style:normal;
     font-size:11px;
     color:var(--text-faint);
     text-transform:uppercase;
     letter-spacing:0.05em;
+    border-bottom:1px dotted var(--text-faint);
+  }
+  .author-tooltip{
+    position:absolute;bottom:100%;left:0;margin-bottom:8px;
+    width:280px;max-width:80vw;
+    background:var(--surface);
+    border:1px solid var(--border-strong);
+    border-radius:10px;
+    box-shadow:var(--shadow);
+    padding:12px 14px;
+    font-style:normal;
+    font-size:12.5px;
+    line-height:1.5;
+    color:var(--text);
+    text-transform:none;
+    letter-spacing:normal;
+    z-index:30;
+    opacity:0;visibility:hidden;
+    transform:translateY(4px);
+    transition:opacity .12s ease, transform .12s ease;
+  }
+  .quote-author-wrap:hover .author-tooltip,
+  .quote-author-wrap:focus .author-tooltip,
+  .quote-author-wrap:focus-within .author-tooltip{
+    opacity:1;visibility:visible;transform:translateY(0);
   }
 
   .recap-banner{
@@ -639,6 +669,32 @@
     {text:"Stilte voor de actie: adem eerst, handel dan.", author:"Shinto-praktijk"}
   ];
 
+  var AUTHOR_FACTS = {
+    "Marcus Aurelius": "Romeins keizer (161-180 n.Chr.), laatste van de “vijf goede keizers”. Schreef Meditations (Overpeinzingen) als persoonlijk dagboek, nooit bedoeld voor publicatie — nu een van de bekendste stoïcijnse teksten ooit.",
+    "Seneca": "Romeins staatsman, toneelschrijver en stoïcijns filosoof (4 v.Chr. – 65 n.Chr.), adviseur van keizer Nero. Werd uiteindelijk door Nero gedwongen zelfmoord te plegen.",
+    "Epictetus": "Geboren als slaaf in het Romeinse Rijk (ca. 50-135 n.Chr.), later vrijgelaten en een invloedrijke stoïcijnse leraar. Zijn lessen werden opgetekend door zijn leerling Arrianus.",
+    "Romeins gezegde": "Een uitdrukking uit het oude Rome, overgeleverd via Latijnse literatuur en volksmond — niet aan één specifiek persoon toe te schrijven.",
+    "naar Cato de Oudere": "Romeins staatsman en schrijver (234-149 v.Chr.), bekend om zijn strenge, plichtsgetrouwe levensstijl en zijn beroemde uitspraak “Carthago moet verwoest worden”.",
+    "Horatius": "Romeins dichter (65-8 v.Chr.) uit de tijd van keizer Augustus, bekend van “carpe diem” uit zijn gedichtenbundel Oden.",
+    "Julius Caesar": "Romeins veldheer en staatsman (100-44 v.Chr.), veroverde Gallië en werd later vermoord door senatoren, onder wie Brutus.",
+    "naar Vergilius": "Romeins dichter (70-19 v.Chr.), schrijver van het epos de Aeneis in opdracht van keizer Augustus.",
+    "naar Publilius Syrus": "Romeinse schrijver (1e eeuw v.Chr.) van korte, krachtige morele spreuken — oorspronkelijk een Syrische slaaf die later werd vrijgelaten.",
+    "Augustus": "Eerste Romeinse keizer (63 v.Chr. – 14 n.Chr.), stichter van het Romeinse keizerrijk na de val van de Republiek.",
+    "Japans gezegde": "Een traditioneel Japans spreekwoord (kotowaza), vaak generaties lang mondeling overgeleverd.",
+    "Japans/Chinees gezegde": "Een wijsheid die zowel in de Japanse als Chinese cultuur bekend is — een teken van de gedeelde filosofische geschiedenis van beide landen.",
+    "Japans levensprincipe": "Ichigo ichie komt oorspronkelijk uit de Japanse theeceremonie: elke ontmoeting is uniek en komt nooit op precies dezelfde manier terug.",
+    "Japanse werkfilosofie": "Kaizen (“verandering ten goede”) is een naoorlogse Japanse managementfilosofie, wereldberoemd geworden via Toyota's productiesysteem.",
+    "Japanse aanmoediging": "“Ganbatte” is een veelgebruikte Japanse uitroep om iemand aan te moedigen door te zetten — vergelijkbaar met “hou vol”.",
+    "Japans esthetisch principe": "Wabi-sabi is een Japans wereldbeeld gebaseerd op het accepteren van vergankelijkheid en imperfectie, met wortels in het zenboeddhisme.",
+    "naar Japanse werkethos": "Verwijst naar de Japanse nadruk op voortdurende, dagelijkse inzet (vergelijkbaar met kaizen) boven eenmalige prestaties.",
+    "Shinto-principe": "Shinto is de inheemse religie van Japan, gericht op eerbied voor kami — geesten/goddelijke krachten die in de natuur aanwezig zijn.",
+    "Shinto-gedachte": "“Wa” (harmonie) is een kernbegrip in de Japanse cultuur, deels voortkomend uit Shinto-denken over evenwicht tussen mens en omgeving.",
+    "Shinto-deugd": "“Makoto” (oprechtheid) is een centrale deugd in Shinto en in de samoeraicode (bushido).",
+    "Shinto-reinigingsritueel": "“Misogi” is een Shinto-reinigingsritueel, van oudsher uitgevoerd onder een waterval of in zee om onreinheid (kegare) af te wassen.",
+    "Shinto-natuurwijsheid": "Shinto kent geen vaste geschriften of dogma's, maar legt de nadruk op het waarnemen van de natuur en haar seizoenen als bron van wijsheid.",
+    "Shinto-praktijk": "Rust en stilte vóór een handeling (bijv. bij een schrijn) is een terugkerend element in Shinto-rituelen, gericht op zuiverheid van intentie."
+  };
+
   function renderDailyQuote(){
     var el = document.getElementById("dailyQuote");
     if(!el) return;
@@ -646,7 +702,12 @@
     var start = new Date(now.getFullYear(), 0, 0);
     var dayOfYear = Math.floor((now - start) / 86400000);
     var q = DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length];
-    el.innerHTML = "“" + esc(q.text) + "”<span class=\"quote-author\">" + esc(q.author) + "</span>";
+    var fact = AUTHOR_FACTS[q.author];
+    el.innerHTML = "“" + esc(q.text) + "”" +
+      '<span class="quote-author-wrap" tabindex="0">' +
+        '<span class="quote-author">' + esc(q.author) + '</span>' +
+        (fact ? '<span class="author-tooltip">' + esc(fact) + '</span>' : '') +
+      '</span>';
   }
 
   function getHealth(p){ return typeof p.health === "number" ? p.health : 75; }
