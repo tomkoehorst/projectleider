@@ -323,13 +323,32 @@
     text-align:left;
   }
 
-  .note{
-    font-family:inherit;font-size:13.5px;line-height:1.5;
-    border:1px solid var(--border);border-radius:6px;padding:8px 10px;
-    background:var(--surface);color:var(--text);resize:vertical;min-height:52px;width:100%;
+  .notes-log{display:flex;flex-direction:column;gap:8px;margin-bottom:8px;}
+  .note-entry{display:flex;align-items:flex-start;gap:8px;font-size:13.5px;}
+  .note-date{
+    font-family:"IBM Plex Mono", monospace;font-variant-numeric:tabular-nums;
+    font-size:11.5px;color:var(--text-faint);white-space:nowrap;margin-top:2px;flex:none;
   }
-  .note:focus{border-color:var(--accent);outline:none;}
-  .note::placeholder{color:var(--text-faint);}
+  .note-entry .note-text{flex:1;line-height:1.5;white-space:pre-wrap;}
+  .note-del{
+    flex:none;background:none;border:none;color:var(--text-faint);
+    cursor:pointer;font-size:15px;line-height:1;padding:0 2px;
+  }
+  .note-del:hover{color:var(--risk);}
+  .note-empty{font-size:13px;color:var(--text-faint);font-style:italic;}
+  .note-add{display:flex;gap:6px;margin-top:2px;}
+  .note-add textarea{
+    flex:1;font-family:inherit;font-size:13px;line-height:1.4;
+    border:1px solid var(--border);border-radius:6px;padding:6px 8px;
+    background:var(--surface);color:var(--text);resize:vertical;min-height:36px;
+  }
+  .note-add textarea:focus{border-color:var(--accent);outline:none;}
+  .note-add textarea::placeholder{color:var(--text-faint);}
+  .note-add button{
+    flex:none;background:var(--accent-soft);color:var(--accent);
+    border:none;border-radius:6px;padding:0 12px;
+    font-size:13px;font-weight:600;cursor:pointer;align-self:flex-start;
+  }
 
   .row-footer{
     display:flex;align-items:center;justify-content:space-between;
@@ -643,6 +662,7 @@
 
     <div id="listRoot">
       <main class="list" id="grid"></main>
+      <div id="pausedWrap"></div>
       <div id="archiveWrap"></div>
     </div>
 
@@ -659,10 +679,10 @@
   var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   var STARTERS = [
-    {name:"Wizzportaal", health:79, milestone_text:"", milestone_date:null, todos:[], note:"Status nog niet ingevuld — pas aan zodra bekend.", sort_order:1},
-    {name:"Chatbot", health:85, milestone_text:"", milestone_date:null, todos:[], note:"Status nog niet ingevuld — pas aan zodra bekend.", sort_order:2},
-    {name:"BOOSTER MO", health:85, milestone_text:"", milestone_date:null, todos:[], note:"Status nog niet ingevuld — pas aan zodra bekend.", sort_order:3},
-    {name:"Viantis", health:85, milestone_text:"", milestone_date:null, todos:[], note:"Status nog niet ingevuld — pas aan zodra bekend.", sort_order:4}
+    {name:"Wizzportaal", health:79, milestone_text:"", milestone_date:null, todos:[], notes:[], sort_order:1},
+    {name:"Chatbot", health:85, milestone_text:"", milestone_date:null, todos:[], notes:[], sort_order:2},
+    {name:"BOOSTER MO", health:85, milestone_text:"", milestone_date:null, todos:[], notes:[], sort_order:3},
+    {name:"Viantis", health:85, milestone_text:"", milestone_date:null, todos:[], notes:[], sort_order:4}
   ];
 
   var MONTHS = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
@@ -760,6 +780,7 @@
   var root = document.getElementById("listRoot");
   var grid = document.getElementById("grid");
   var archiveWrap = document.getElementById("archiveWrap");
+  var pausedWrap = document.getElementById("pausedWrap");
   var statsEl = document.getElementById("stats");
   var recapSection = document.getElementById("briefingRecap");
   var emptyState = document.getElementById("emptyState");
@@ -770,7 +791,7 @@
   var uiState = {};
   var showAddForm = false;
   var archiveOpen = false;
-  var noteTimers = {};
+  var pausedOpen = false;
   var seeded = false;
   var allFiles = [];
   var currentUserId = null;
@@ -786,10 +807,11 @@
     complete_todo: "to do’s afgerond",
     delete_todo: "to do’s verwijderd",
     update_status: "keer status bijgewerkt",
-    update_note: "notities bijgewerkt",
+    add_note: "notities toegevoegd",
     set_milestone: "mijlpalen aangepast",
     add_project: "nieuwe projecten",
-    archive_project: "projecten afgerond"
+    archive_project: "projecten afgerond",
+    pause_project: "projecten gepauzeerd"
   };
 
   async function loadAndRenderRecap(){
@@ -807,7 +829,7 @@
       .map(function(k){ return counts[k] + " " + ACTION_LABELS[k]; });
     if(parts.length === 0){ recapSection.hidden = true; return; }
 
-    var active = activeDocs();
+    var active = workingDocs();
     var freshCount = active.filter(function(p){ return p.updated_at && new Date(p.updated_at) >= weekStart; }).length;
     var allFresh = active.length > 0 && freshCount === active.length;
 
@@ -821,7 +843,7 @@
   function renderFocusToday(){
     var el = document.getElementById("briefingFocus");
     if(!el) return;
-    var active = activeDocs();
+    var active = workingDocs();
     var today = todayISO();
     var STALE_DAYS = 14;
     var items = [];
@@ -868,7 +890,7 @@
     var el = document.getElementById("milestonesCard");
     if(!el) return;
     var today = todayISO();
-    var upcoming = activeDocs()
+    var upcoming = workingDocs()
       .filter(function(p){ return p.milestone_date && p.milestone_date >= today; })
       .sort(function(a,b){ return a.milestone_date < b.milestone_date ? -1 : 1; })
       .slice(0,5);
@@ -889,6 +911,8 @@
 
   function activeDocs(){ return docs.filter(function(d){ return !d.archived; }); }
   function archivedDocs(){ return docs.filter(function(d){ return d.archived; }); }
+  function workingDocs(){ return docs.filter(function(d){ return !d.archived && !d.paused; }); }
+  function pausedDocs(){ return docs.filter(function(d){ return !d.archived && d.paused; }); }
 
   function uid(){
     try { return crypto.randomUUID(); } catch(e){ return String(Date.now()) + Math.random().toString(16).slice(2); }
@@ -982,7 +1006,7 @@
   }
 
   function sortedDocs(){
-    return activeDocs().sort(function(a,b){
+    return workingDocs().sort(function(a,b){
       var ha = getHealth(a), hb = getHealth(b);
       if(ha !== hb) return ha - hb;
       var da = a.milestone_date || "9999-99-99";
@@ -1002,8 +1026,9 @@
   }
 
   function renderStats(){
-    var active = activeDocs();
+    var active = workingDocs();
     var total = active.length;
+    var pausedCount = pausedDocs().length;
     var buckets = active.map(function(d){ return healthBucket(getHealth(d)).label; });
     var risk = buckets.filter(function(l){ return l === "Risico"; }).length;
     var warn = buckets.filter(function(l){ return l === "Aandacht nodig"; }).length;
@@ -1068,6 +1093,7 @@
       '<div class="stat"><p class="stat-label">Op schema</p><p class="stat-value">' + good + '</p></div>' +
       '<div class="stat"><p class="stat-label">Aandacht</p><p class="stat-value warn">' + warn + '</p></div>' +
       '<div class="stat"><p class="stat-label">Risico</p><p class="stat-value risk">' + risk + '</p></div>' +
+      '<div class="stat"><p class="stat-label">Gepauzeerd</p><p class="stat-value">' + pausedCount + '</p></div>' +
       '<div class="stat"><p class="stat-label">Open to do&rsquo;s</p><p class="stat-value">' + openTodoCount + '</p></div>' +
       '<div class="stat"><p class="stat-label">Eerstvolgende mijlpaal</p><p class="stat-value" style="font-size:15px;">' +
         (next ? esc(next.name) : "&ndash;") +
@@ -1121,6 +1147,15 @@
       '</div>';
     }).join("") || '<p class="todo-empty">Geen open to do&rsquo;s</p>';
 
+    var notesArr = Array.isArray(p.notes) ? p.notes : [];
+    var notesHTML = notesArr.map(function(n){
+      return '<div class="note-entry">' +
+        '<span class="note-date">' + esc(fmtDate(n.date)) + '</span>' +
+        '<span class="note-text">' + esc(n.text) + '</span>' +
+        '<button class="note-del" title="Verwijderen" data-action="delete-note" data-id="' + id + '" data-note="' + n.id + '">&times;</button>' +
+      '</div>';
+    }).join("") || '<p class="note-empty">Nog geen notities</p>';
+
     return (
       '<div class="row-detail">' +
         nameBlock +
@@ -1134,14 +1169,19 @@
           '</div>' +
         '</div>' +
         '<div>' +
-          '<p class="field-label">Notitie</p>' +
-          '<textarea class="note" id="note-' + id + '" data-id="' + id + '" placeholder="Laatste stand van zaken...">' + esc(p.note) + '</textarea>' +
+          '<p class="field-label">Notities</p>' +
+          '<div class="notes-log">' + notesHTML + '</div>' +
+          '<div class="note-add">' +
+            '<textarea id="note-input-' + id + '" placeholder="Nieuwe notitie..."></textarea>' +
+            '<button data-action="add-note" data-id="' + id + '" type="button">Toevoegen</button>' +
+          '</div>' +
         '</div>' +
         filesSectionHTML(id) +
         sessionsSectionHTML(id) +
         '<div class="row-footer">' +
           '<span class="updated-at">' + esc(relTime(p.updated_at)) + '</span>' +
           '<span class="footer-actions">' +
+            '<button class="btn-text" data-action="pause-project" data-id="' + id + '">Pauzeren</button>' +
             '<button class="btn-text" data-action="archive-project" data-id="' + id + '">Afronden</button>' +
             deleteControl(id, ui) +
           '</span>' +
@@ -1232,6 +1272,32 @@
       (archiveOpen ? '<div class="archive-list">' + archived.map(archiveRowHTML).join("") + '</div>' : '');
   }
 
+  function pausedRowHTML(p){
+    var id = p.id;
+    var ui = uiState[id] || {};
+    return (
+      '<div class="archive-row">' +
+        '<span class="archive-name">' + esc(p.name) + '</span>' +
+        '<span class="archive-actions">' +
+          '<button class="btn-text" data-action="resume-project" data-id="' + id + '">Hervatten</button>' +
+          deleteControl(id, ui) +
+        '</span>' +
+      '</div>'
+    );
+  }
+
+  function renderPaused(){
+    var paused = pausedDocs();
+    if(paused.length === 0){
+      pausedWrap.innerHTML = "";
+      return;
+    }
+    var label = (pausedOpen ? "Verberg" : "Toon") + " gepauzeerde projecten (" + paused.length + ")";
+    pausedWrap.innerHTML =
+      '<button class="btn-text archive-toggle-btn" data-action="toggle-paused" type="button">' + label + '</button>' +
+      (pausedOpen ? '<div class="archive-list">' + paused.map(pausedRowHTML).join("") + '</div>' : '');
+  }
+
   function rowHTML(p){
     var id = p.id;
     var ui = uiState[id] || {};
@@ -1303,6 +1369,7 @@
     emptyState.hidden = activeDocs().length > 0 || showAddForm;
     grid.innerHTML = newRowHTML() + sortedDocs().map(rowHTML).join("");
     renderArchive();
+    renderPaused();
     populateProjectSelects();
     restoreFocus(focus);
     if(showAddForm){
@@ -1404,6 +1471,24 @@
       updateProject(id, touch({todos: todos}));
       return;
     }
+    if(action === "add-note"){
+      var noteInput = document.getElementById("note-input-" + id);
+      var noteText = noteInput ? noteInput.value.trim() : "";
+      if(!noteText) return;
+      var noteCur = getData(id);
+      var notes = (noteCur && Array.isArray(noteCur.notes)) ? noteCur.notes.slice() : [];
+      notes.unshift({id: uid(), text: noteText, date: todayISO()});
+      updateProject(id, touch({notes: notes}));
+      if(noteInput) noteInput.value = "";
+      return;
+    }
+    if(action === "delete-note"){
+      var noteId = actionEl.getAttribute("data-note");
+      var noteCur2 = getData(id);
+      var notes2 = (noteCur2 && Array.isArray(noteCur2.notes)) ? noteCur2.notes.filter(function(n){ return n.id !== noteId; }) : [];
+      updateProject(id, touch({notes: notes2}));
+      return;
+    }
     if(action === "ask-delete"){
       uiState[id] = Object.assign({}, uiState[id], {confirmDelete:true});
       render();
@@ -1428,6 +1513,19 @@
     }
     if(action === "toggle-archive"){
       archiveOpen = !archiveOpen;
+      render();
+      return;
+    }
+    if(action === "pause-project"){
+      updateProject(id, touch({paused: true}));
+      return;
+    }
+    if(action === "resume-project"){
+      updateProject(id, touch({paused: false}));
+      return;
+    }
+    if(action === "toggle-paused"){
+      pausedOpen = !pausedOpen;
       render();
       return;
     }
@@ -1517,15 +1615,6 @@
 
   function onGridBlur(e){
     var t = e.target;
-    if(t.id && t.id.indexOf("note-") === 0){
-      var id = t.getAttribute("data-id");
-      clearTimeout(noteTimers[id]);
-      var val = t.value;
-      var cur = getData(id);
-      if(cur && cur.note === val) return;
-      updateProject(id, touch({note: val}));
-      return;
-    }
     if(t.id && t.id.indexOf("name-input-") === 0){
       var id2 = t.getAttribute("data-id");
       var val2 = t.value.trim();
@@ -1564,16 +1653,6 @@
       applyHealthLive(t.getAttribute("data-id"), parseInt(t.value, 10));
       return;
     }
-    if(t.id && t.id.indexOf("note-") === 0){
-      var id = t.getAttribute("data-id");
-      clearTimeout(noteTimers[id]);
-      var val = t.value;
-      noteTimers[id] = setTimeout(function(){
-        var cur = getData(id);
-        if(cur && cur.note === val) return;
-        updateProject(id, touch({note: val}));
-      }, 1200);
-    }
   }
 
   function submitNewProject(){
@@ -1587,7 +1666,7 @@
       milestone_text: "",
       milestone_date: null,
       todos: [],
-      note: "",
+      notes: [],
       sort_order: maxOrder + 1
     });
     showAddForm = false;
