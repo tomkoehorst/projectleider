@@ -68,6 +68,18 @@
   .page{max-width:1080px;margin-inline:auto;}
   [hidden]{display:none!important;}
 
+  .showcase-masthead{
+    background:#F2E8D6;
+    color:#15202B;
+    border-radius:14px;
+    padding:16px 24px;
+    margin-bottom:14px;
+    font-weight:700;
+    font-size:14px;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+  }
+
   .showcase-hero{
     background:var(--tile-bg);
     color:var(--tile-ink);
@@ -114,19 +126,17 @@
   .showcase-card-body{padding:18px 22px 22px;display:flex;flex-direction:column;gap:10px;flex:1;}
   .showcase-pitch{font-size:14px;line-height:1.6;color:var(--text);margin:0;white-space:pre-wrap;flex:1;}
   .showcase-pitch.empty{color:var(--text-faint);font-style:italic;}
-  .showcase-updated{font-size:11.5px;color:var(--text-faint);margin:0;}
 
   .showcase-empty{
     text-align:center;color:var(--text-muted);font-size:14px;padding:60px 20px;
     border:1px dashed var(--border-strong);border-radius:16px;
   }
   .showcase-loading{color:var(--text-faint);font-size:14px;}
-
-  .showcase-footer{margin-top:48px;text-align:center;font-size:12px;color:var(--text-faint);}
 </style>
 </head>
 <body>
 <div class="page">
+  <div class="showcase-masthead">BOOSTER digitale realisatie</div>
   <div class="showcase-hero tile-7">
     <p class="showcase-eyebrow">Waar ik nu aan werk</p>
     <h1>Digitaliseringsprojecten</h1>
@@ -136,8 +146,6 @@
   <p class="showcase-loading" id="loadingState">Bezig met laden&hellip;</p>
   <p class="showcase-empty" id="emptyState" hidden>Nog geen projecten gemarkeerd voor de showcase.</p>
   <div class="showcase-grid" id="grid"></div>
-
-  <p class="showcase-footer">Projectradar &middot; gemeente Utrecht</p>
 </div>
 
 <script>
@@ -145,27 +153,12 @@
   var SUPABASE_KEY = "sb_publishable_o2v6CMYOtqdLQZZl9R7raA_1aDBS9GG";
   var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  var MONTHS = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
   var TILE_COUNT = 8;
 
   function esc(s){
     return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
       return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
     });
-  }
-
-  function fmtDate(iso){
-    if(!iso) return "";
-    var parts = iso.split("-");
-    if(parts.length !== 3) return iso;
-    var d = parseInt(parts[2],10), m = parseInt(parts[1],10)-1;
-    if(isNaN(d) || isNaN(m) || !MONTHS[m]) return iso;
-    return d + " " + MONTHS[m];
-  }
-
-  function fmtUpdated(iso){
-    if(!iso) return "";
-    return "Bijgewerkt op " + fmtDate(iso.slice(0,10));
   }
 
   function cardHTML(p, index){
@@ -180,7 +173,6 @@
         '<div class="showcase-card-header ' + tileCls + '"><h3>' + esc(p.name) + '</h3></div>' +
         '<div class="showcase-card-body">' +
           pitchHTML +
-          '<p class="showcase-updated">' + esc(fmtUpdated(p.updated_at)) + '</p>' +
         '</div>' +
       '</article>'
     );
