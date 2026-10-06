@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Waar ik nu aan werk</title>
+<meta name="description" content="Een overzicht van de digitaliseringsprojecten waar ik momenteel aan werk.">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg: #F6F5F1;
+    --surface: #FFFFFF;
+    --text: #1B1D1C;
+    --text-muted: #6B6E68;
+    --text-faint: #9A9D96;
+    --border: #E3E1D8;
+    --border-strong: #CFCCC0;
+    --accent: #285C58;
+    --accent-strong: #1B403D;
+    --accent-soft: rgba(40,92,88,0.09);
+    --shadow: 0 1px 2px rgba(20,20,15,0.04), 0 6px 16px -8px rgba(20,20,15,0.12);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg: #14161A;
+      --surface: #1C1F23;
+      --text: #ECEDE9;
+      --text-muted: #A2A6A0;
+      --text-faint: #74786F;
+      --border: #33373A;
+      --border-strong: #454A4C;
+      --accent: #6FBBB3;
+      --accent-strong: #8FD0C8;
+      --accent-soft: rgba(111,187,179,0.12);
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 20px -10px rgba(0,0,0,0.5);
+      color-scheme: dark;
+    }
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:"Helvetica Neue", Helvetica, Arial, sans-serif;
+    padding-inline:20px;
+    padding-block:48px 60px;
+  }
+  .page{max-width:1000px;margin-inline:auto;}
+  [hidden]{display:none!important;}
+
+  .showcase-header{max-width:680px;margin-bottom:36px;}
+  .showcase-eyebrow{
+    font-size:11px;text-transform:uppercase;letter-spacing:0.08em;
+    color:var(--accent);font-weight:600;margin:0 0 10px;
+  }
+  .showcase-header h1{
+    font-family:"Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-weight:600;font-size:32px;letter-spacing:-0.01em;margin:0 0 10px;
+    text-wrap:balance;
+  }
+  .showcase-header p{font-size:15px;line-height:1.55;color:var(--text-muted);margin:0;}
+
+  .showcase-grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(270px, 1fr));
+    gap:16px;
+  }
+  .showcase-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:22px 24px;
+    box-shadow:var(--shadow);
+    display:flex;flex-direction:column;gap:12px;
+  }
+  .showcase-card h3{
+    font-family:"Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-weight:600;font-size:18px;margin:0;letter-spacing:-0.005em;
+  }
+  .showcase-pitch{font-size:14px;line-height:1.6;color:var(--text);margin:0;white-space:pre-wrap;flex:1;}
+  .showcase-pitch.empty{color:var(--text-faint);font-style:italic;}
+  .showcase-milestone{
+    display:inline-flex;align-items:baseline;gap:6px;
+    background:var(--accent-soft);color:var(--accent-strong);
+    border-radius:8px;padding:7px 11px;font-size:12.5px;line-height:1.4;
+    align-self:flex-start;
+  }
+  .showcase-milestone .mi-date{
+    font-family:"IBM Plex Mono", monospace;font-variant-numeric:tabular-nums;
+    white-space:nowrap;color:var(--accent);font-weight:600;
+  }
+  .showcase-updated{font-size:11.5px;color:var(--text-faint);margin:0;}
+
+  .showcase-empty{
+    text-align:center;color:var(--text-muted);font-size:14px;padding:60px 20px;
+    border:1px dashed var(--border-strong);border-radius:12px;
+  }
+  .showcase-loading{color:var(--text-faint);font-size:14px;}
+
+  .showcase-footer{margin-top:48px;text-align:center;font-size:12px;color:var(--text-faint);}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="showcase-header">
+    <p class="showcase-eyebrow">Waar ik nu aan werk</p>
+    <h1>Digitaliseringsprojecten</h1>
+    <p>Een overzicht van de projecten waar ik momenteel mee bezig ben &mdash; bijgehouden vanuit mijn eigen projectoverzicht.</p>
+  </div>
+
+  <p class="showcase-loading" id="loadingState">Bezig met laden&hellip;</p>
+  <p class="showcase-empty" id="emptyState" hidden>Nog geen projecten gemarkeerd voor de showcase.</p>
+  <div class="showcase-grid" id="grid"></div>
+
+  <p class="showcase-footer">Projectradar &middot; gemeente Utrecht</p>
+</div>
+
+<script>
+  var SUPABASE_URL = "https://nqkfpuxtegepsugqjune.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_o2v6CMYOtqdLQZZl9R7raA_1aDBS9GG";
+  var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  var MONTHS = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+
+  function esc(s){
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  function fmtDate(iso){
+    if(!iso) return "";
+    var parts = iso.split("-");
+    if(parts.length !== 3) return iso;
+    var d = parseInt(parts[2],10), m = parseInt(parts[1],10)-1;
+    if(isNaN(d) || isNaN(m) || !MONTHS[m]) return iso;
+    return d + " " + MONTHS[m];
+  }
+
+  function fmtUpdated(iso){
+    if(!iso) return "";
+    return "Bijgewerkt op " + fmtDate(iso.slice(0,10));
+  }
+
+  function cardHTML(p){
+    var pitch = (p.showcase_pitch || "").trim();
+    var pitchHTML = pitch
+      ? '<p class="showcase-pitch">' + esc(pitch) + '</p>'
+      : '<p class="showcase-pitch empty">Binnenkort meer hierover.</p>';
+
+    var milestoneHTML = "";
+    if(p.milestone_text || p.milestone_date){
+      milestoneHTML =
+        '<span class="showcase-milestone">' +
+          '<span>' + esc(p.milestone_text || "Volgende mijlpaal") + '</span>' +
+          (p.milestone_date ? '<span class="mi-date">' + fmtDate(p.milestone_date) + '</span>' : '') +
+        '</span>';
+    }
+
+    return (
+      '<article class="showcase-card">' +
+        '<h3>' + esc(p.name) + '</h3>' +
+        pitchHTML +
+        milestoneHTML +
+        '<p class="showcase-updated">' + esc(fmtUpdated(p.updated_at)) + '</p>' +
+      '</article>'
+    );
+  }
+
+  async function load(){
+    var loadingState = document.getElementById("loadingState");
+    var emptyState = document.getElementById("emptyState");
+    var grid = document.getElementById("grid");
+
+    var res = await supabaseClient.from("showcase_projects").select("*").order("updated_at", {ascending:false});
+    loadingState.hidden = true;
+
+    var rows = res.data || [];
+    if(res.error || rows.length === 0){
+      emptyState.hidden = false;
+      return;
+    }
+    grid.innerHTML = rows.map(cardHTML).join("");
+  }
+
+  load();
+</script>
+</body>
+</html>
