@@ -17,10 +17,8 @@
     --text-faint: #9A9D96;
     --border: #E3E1D8;
     --border-strong: #CFCCC0;
-    --accent: #285C58;
-    --accent-strong: #1B403D;
-    --accent-soft: rgba(40,92,88,0.09);
-    --shadow: 0 1px 2px rgba(20,20,15,0.04), 0 6px 16px -8px rgba(20,20,15,0.12);
+    --shadow: 0 2px 4px rgba(20,20,15,0.05), 0 10px 24px -10px rgba(20,20,15,0.16);
+    --ink: #15202B;
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark){
@@ -32,13 +30,32 @@
       --text-faint: #74786F;
       --border: #33373A;
       --border-strong: #454A4C;
-      --accent: #6FBBB3;
-      --accent-strong: #8FD0C8;
-      --accent-soft: rgba(111,187,179,0.12);
-      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 20px -10px rgba(0,0,0,0.5);
+      --shadow: 0 2px 4px rgba(0,0,0,0.3), 0 10px 24px -10px rgba(0,0,0,0.6);
       color-scheme: dark;
     }
   }
+
+  /* Validated categorical palette (8 hues, fixed order) - light / dark steps,
+     with a pre-checked ink color per slot for AA contrast as a bold headline. */
+  .tile-1{--tile-bg:#2a78d6;--tile-ink:#ffffff;}
+  .tile-2{--tile-bg:#eb6834;--tile-ink:#15202b;}
+  .tile-3{--tile-bg:#1baf7a;--tile-ink:#15202b;}
+  .tile-4{--tile-bg:#eda100;--tile-ink:#15202b;}
+  .tile-5{--tile-bg:#e87ba4;--tile-ink:#15202b;}
+  .tile-6{--tile-bg:#008300;--tile-ink:#ffffff;}
+  .tile-7{--tile-bg:#4a3aa7;--tile-ink:#ffffff;}
+  .tile-8{--tile-bg:#e34948;--tile-ink:#ffffff;}
+  @media (prefers-color-scheme: dark){
+    .tile-1{--tile-bg:#3987e5;--tile-ink:#15202b;}
+    .tile-2{--tile-bg:#d95926;--tile-ink:#15202b;}
+    .tile-3{--tile-bg:#199e70;--tile-ink:#15202b;}
+    .tile-4{--tile-bg:#c98500;--tile-ink:#15202b;}
+    .tile-5{--tile-bg:#d55181;--tile-ink:#15202b;}
+    .tile-6{--tile-bg:#008300;--tile-ink:#ffffff;}
+    .tile-7{--tile-bg:#9085e9;--tile-ink:#15202b;}
+    .tile-8{--tile-bg:#e66767;--tile-ink:#15202b;}
+  }
+
   *{box-sizing:border-box;}
   html,body{margin:0;}
   body{
@@ -46,57 +63,62 @@
     color:var(--text);
     font-family:"Helvetica Neue", Helvetica, Arial, sans-serif;
     padding-inline:20px;
-    padding-block:48px 60px;
+    padding-block:32px 60px;
   }
-  .page{max-width:1000px;margin-inline:auto;}
+  .page{max-width:1080px;margin-inline:auto;}
   [hidden]{display:none!important;}
 
-  .showcase-header{max-width:680px;margin-bottom:36px;}
+  .showcase-hero{
+    background:var(--tile-bg);
+    color:var(--tile-ink);
+    border-radius:20px;
+    padding:52px 40px;
+    margin-bottom:28px;
+  }
   .showcase-eyebrow{
-    font-size:11px;text-transform:uppercase;letter-spacing:0.08em;
-    color:var(--accent);font-weight:600;margin:0 0 10px;
+    font-size:12px;text-transform:uppercase;letter-spacing:0.14em;
+    font-weight:700;margin:0 0 14px;opacity:0.85;
   }
-  .showcase-header h1{
+  .showcase-hero h1{
     font-family:"Helvetica Neue", Helvetica, Arial, sans-serif;
-    font-weight:600;font-size:32px;letter-spacing:-0.01em;margin:0 0 10px;
-    text-wrap:balance;
+    font-weight:800;font-size:clamp(34px, 5vw, 56px);letter-spacing:-0.02em;
+    margin:0 0 14px;line-height:1.02;text-wrap:balance;
   }
-  .showcase-header p{font-size:15px;line-height:1.55;color:var(--text-muted);margin:0;}
+  .showcase-hero p{font-size:16px;line-height:1.55;margin:0;max-width:560px;opacity:0.92;}
 
   .showcase-grid{
     display:grid;
-    grid-template-columns:repeat(auto-fill, minmax(270px, 1fr));
-    gap:16px;
+    grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));
+    gap:18px;
   }
   .showcase-card{
     background:var(--surface);
     border:1px solid var(--border);
-    border-radius:12px;
-    padding:22px 24px;
+    border-radius:16px;
     box-shadow:var(--shadow);
-    display:flex;flex-direction:column;gap:12px;
+    overflow:hidden;
+    display:flex;flex-direction:column;
+    transition:transform .15s ease, box-shadow .15s ease;
   }
-  .showcase-card h3{
+  .showcase-card:hover{transform:translateY(-3px);}
+  .showcase-card-header{
+    background:var(--tile-bg);
+    color:var(--tile-ink);
+    padding:30px 22px 24px;
+  }
+  .showcase-card-header h3{
     font-family:"Helvetica Neue", Helvetica, Arial, sans-serif;
-    font-weight:600;font-size:18px;margin:0;letter-spacing:-0.005em;
+    font-weight:800;font-size:23px;margin:0;letter-spacing:-0.01em;
+    line-height:1.15;text-wrap:balance;
   }
+  .showcase-card-body{padding:18px 22px 22px;display:flex;flex-direction:column;gap:10px;flex:1;}
   .showcase-pitch{font-size:14px;line-height:1.6;color:var(--text);margin:0;white-space:pre-wrap;flex:1;}
   .showcase-pitch.empty{color:var(--text-faint);font-style:italic;}
-  .showcase-milestone{
-    display:inline-flex;align-items:baseline;gap:6px;
-    background:var(--accent-soft);color:var(--accent-strong);
-    border-radius:8px;padding:7px 11px;font-size:12.5px;line-height:1.4;
-    align-self:flex-start;
-  }
-  .showcase-milestone .mi-date{
-    font-family:"IBM Plex Mono", monospace;font-variant-numeric:tabular-nums;
-    white-space:nowrap;color:var(--accent);font-weight:600;
-  }
   .showcase-updated{font-size:11.5px;color:var(--text-faint);margin:0;}
 
   .showcase-empty{
     text-align:center;color:var(--text-muted);font-size:14px;padding:60px 20px;
-    border:1px dashed var(--border-strong);border-radius:12px;
+    border:1px dashed var(--border-strong);border-radius:16px;
   }
   .showcase-loading{color:var(--text-faint);font-size:14px;}
 
@@ -105,7 +127,7 @@
 </head>
 <body>
 <div class="page">
-  <div class="showcase-header">
+  <div class="showcase-hero tile-7">
     <p class="showcase-eyebrow">Waar ik nu aan werk</p>
     <h1>Digitaliseringsprojecten</h1>
     <p>Een overzicht van de projecten waar ik momenteel mee bezig ben &mdash; bijgehouden vanuit mijn eigen projectoverzicht.</p>
@@ -124,6 +146,7 @@
   var supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   var MONTHS = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+  var TILE_COUNT = 8;
 
   function esc(s){
     return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){
@@ -145,27 +168,20 @@
     return "Bijgewerkt op " + fmtDate(iso.slice(0,10));
   }
 
-  function cardHTML(p){
+  function cardHTML(p, index){
+    var tileCls = "tile-" + ((index % TILE_COUNT) + 1);
     var pitch = (p.showcase_pitch || "").trim();
     var pitchHTML = pitch
       ? '<p class="showcase-pitch">' + esc(pitch) + '</p>'
       : '<p class="showcase-pitch empty">Binnenkort meer hierover.</p>';
 
-    var milestoneHTML = "";
-    if(p.milestone_text || p.milestone_date){
-      milestoneHTML =
-        '<span class="showcase-milestone">' +
-          '<span>' + esc(p.milestone_text || "Volgende mijlpaal") + '</span>' +
-          (p.milestone_date ? '<span class="mi-date">' + fmtDate(p.milestone_date) + '</span>' : '') +
-        '</span>';
-    }
-
     return (
       '<article class="showcase-card">' +
-        '<h3>' + esc(p.name) + '</h3>' +
-        pitchHTML +
-        milestoneHTML +
-        '<p class="showcase-updated">' + esc(fmtUpdated(p.updated_at)) + '</p>' +
+        '<div class="showcase-card-header ' + tileCls + '"><h3>' + esc(p.name) + '</h3></div>' +
+        '<div class="showcase-card-body">' +
+          pitchHTML +
+          '<p class="showcase-updated">' + esc(fmtUpdated(p.updated_at)) + '</p>' +
+        '</div>' +
       '</article>'
     );
   }
