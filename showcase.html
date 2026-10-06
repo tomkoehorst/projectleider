@@ -54,12 +54,13 @@
   [hidden]{display:none!important;}
 
   .showcase-masthead{
-    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
     background:#F2E8D6;
     border-radius:16px;
-    padding:20px 26px;
+    padding:16px 26px;
     margin-bottom:28px;
   }
+  .masthead-brand{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
   .masthead-mark{width:14px;height:14px;border-radius:4px;background:#4a3aa7;flex:none;}
   .masthead-text{
     display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
@@ -68,6 +69,7 @@
   .masthead-sub{
     font-weight:500;font-size:12.5px;letter-spacing:0.08em;text-transform:uppercase;color:#6B6150;
   }
+  .masthead-logo{height:44px;width:auto;flex:none;}
 
   .showcase-grid{
     display:grid;
@@ -140,8 +142,11 @@
 <body>
 <div class="page">
   <div class="showcase-masthead">
-    <span class="masthead-mark"></span>
-    <span class="masthead-text">BOOSTER<span class="masthead-sub">digitale realisatie</span></span>
+    <span class="masthead-brand">
+      <span class="masthead-mark"></span>
+      <span class="masthead-text">BOOSTER<span class="masthead-sub">digitale realisatie</span></span>
+    </span>
+    <img class="masthead-logo" src="assets/gemeente-utrecht-logo.webp" alt="Gemeente Utrecht">
   </div>
 
   <p class="showcase-loading" id="loadingState">Bezig met laden&hellip;</p>
