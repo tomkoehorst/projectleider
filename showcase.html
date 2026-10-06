@@ -81,6 +81,10 @@
   .showcase-card-featured .showcase-card-image,
   .showcase-card-featured .showcase-card-header{height:260px;}
   .showcase-card-featured .showcase-card-title{font-size:24px;}
+  @media (max-width:640px){
+    .showcase-grid{grid-template-columns:1fr;}
+    .showcase-card-featured{grid-column:auto;}
+  }
   .showcase-card{
     background:var(--surface);
     border:1px solid var(--border);
