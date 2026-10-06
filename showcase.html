@@ -107,7 +107,13 @@
     line-height:1.15;text-wrap:balance;
   }
   .showcase-card-image{
-    height:170px;background-size:cover;background-position:center;background-color:var(--border);
+    height:180px;
+    background:#F2F1EC;
+    display:flex;align-items:center;justify-content:center;
+    padding:18px;
+  }
+  .showcase-card-image img{
+    max-width:100%;max-height:100%;object-fit:contain;display:block;
   }
   .showcase-card-body{padding:18px 22px 22px;display:flex;flex-direction:column;gap:10px;flex:1;}
   .showcase-card-title{
@@ -158,7 +164,7 @@
       : null;
 
     var headerHTML = imageUrl
-      ? '<div class="showcase-card-image" style="background-image:url(&quot;' + esc(imageUrl) + '&quot;)" role="img" aria-label="' + esc(p.name) + '"></div>'
+      ? '<div class="showcase-card-image"><img src="' + esc(imageUrl) + '" alt="' + esc(p.name) + '"></div>'
       : '<div class="showcase-card-header ' + tileCls + '"><h3>' + esc(p.name) + '</h3></div>';
     var titleInBodyHTML = imageUrl ? '<h3 class="showcase-card-title">' + esc(p.name) + '</h3>' : '';
 
