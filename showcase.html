@@ -35,26 +35,17 @@
     }
   }
 
-  /* Validated categorical palette (8 hues, fixed order) - light / dark steps,
-     with a pre-checked ink color per slot for AA contrast as a bold headline. */
-  .tile-1{--tile-bg:#2a78d6;--tile-ink:#ffffff;}
-  .tile-2{--tile-bg:#eb6834;--tile-ink:#15202b;}
-  .tile-3{--tile-bg:#1baf7a;--tile-ink:#15202b;}
-  .tile-4{--tile-bg:#eda100;--tile-ink:#15202b;}
-  .tile-5{--tile-bg:#e87ba4;--tile-ink:#15202b;}
-  .tile-6{--tile-bg:#008300;--tile-ink:#ffffff;}
-  .tile-7{--tile-bg:#4a3aa7;--tile-ink:#ffffff;}
-  .tile-8{--tile-bg:#e34948;--tile-ink:#ffffff;}
-  @media (prefers-color-scheme: dark){
-    .tile-1{--tile-bg:#3987e5;--tile-ink:#15202b;}
-    .tile-2{--tile-bg:#d95926;--tile-ink:#15202b;}
-    .tile-3{--tile-bg:#199e70;--tile-ink:#15202b;}
-    .tile-4{--tile-bg:#c98500;--tile-ink:#15202b;}
-    .tile-5{--tile-bg:#d55181;--tile-ink:#15202b;}
-    .tile-6{--tile-bg:#008300;--tile-ink:#ffffff;}
-    .tile-7{--tile-bg:#9085e9;--tile-ink:#15202b;}
-    .tile-8{--tile-bg:#e66767;--tile-ink:#15202b;}
-  }
+  /* Pastel decorative palette (8 hues, same fixed order as before). Purely
+     decorative now - no text sits on these - so one soft set works in both
+     themes, no per-mode or per-slot ink overrides needed. */
+  .tile-1{--tile-bg:#C9DEF5;}
+  .tile-2{--tile-bg:#F7DAC0;}
+  .tile-3{--tile-bg:#C5EBDB;}
+  .tile-4{--tile-bg:#FBE9B8;}
+  .tile-5{--tile-bg:#F6D3E4;}
+  .tile-6{--tile-bg:#D2E9C9;}
+  .tile-7{--tile-bg:#DDD3F2;}
+  .tile-8{--tile-bg:#F8D4D1;}
 
   *{box-sizing:border-box;}
   html,body{margin:0;}
@@ -113,7 +104,7 @@
   }
   .showcase-card-pitch-overlay{
     position:absolute;inset:0;
-    background:rgba(21,32,43,0.88);
+    background:rgba(246,244,238,0.96);
     display:flex;align-items:center;justify-content:center;
     padding:20px;text-align:center;
     opacity:0;
@@ -126,9 +117,9 @@
     opacity:1;
   }
   .showcase-overlay-text{
-    margin:0;font-size:13.5px;line-height:1.6;color:#fff;white-space:pre-wrap;
+    margin:0;font-size:13.5px;line-height:1.6;color:var(--ink);white-space:pre-wrap;
   }
-  .showcase-overlay-text.empty{font-style:italic;opacity:0.8;}
+  .showcase-overlay-text.empty{font-style:italic;color:#6B6E68;}
   .showcase-card-body{padding:16px 20px;}
   .showcase-card-title{
     font-family:"Helvetica Neue", Helvetica, Arial, sans-serif;
