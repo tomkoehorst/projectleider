@@ -96,15 +96,11 @@
     transition:transform .15s ease, box-shadow .15s ease;
   }
   .showcase-card:hover{transform:translateY(-3px);}
+  .showcase-card:focus{outline:2px solid var(--border-strong);outline-offset:2px;}
+  .showcase-card-image-wrap{position:relative;}
   .showcase-card-header{
+    height:180px;
     background:var(--tile-bg);
-    color:var(--tile-ink);
-    padding:30px 22px 24px;
-  }
-  .showcase-card-header h3{
-    font-family:"Helvetica Neue", Helvetica, Arial, sans-serif;
-    font-weight:800;font-size:23px;margin:0;letter-spacing:-0.01em;
-    line-height:1.15;text-wrap:balance;
   }
   .showcase-card-image{
     height:180px;
@@ -115,13 +111,29 @@
   .showcase-card-image img{
     max-width:100%;max-height:100%;object-fit:contain;display:block;
   }
-  .showcase-card-body{padding:18px 22px 22px;display:flex;flex-direction:column;gap:10px;flex:1;}
+  .showcase-card-pitch-overlay{
+    position:absolute;inset:0;
+    background:rgba(21,32,43,0.88);
+    display:flex;align-items:center;justify-content:center;
+    padding:20px;text-align:center;
+    opacity:0;
+    transition:opacity .18s ease;
+  }
+  .showcase-card:hover .showcase-card-pitch-overlay,
+  .showcase-card:focus .showcase-card-pitch-overlay,
+  .showcase-card:focus-within .showcase-card-pitch-overlay,
+  .showcase-card:active .showcase-card-pitch-overlay{
+    opacity:1;
+  }
+  .showcase-overlay-text{
+    margin:0;font-size:13.5px;line-height:1.6;color:#fff;white-space:pre-wrap;
+  }
+  .showcase-overlay-text.empty{font-style:italic;opacity:0.8;}
+  .showcase-card-body{padding:16px 20px;}
   .showcase-card-title{
     font-family:"Helvetica Neue", Helvetica, Arial, sans-serif;
     font-weight:800;font-size:19px;margin:0;letter-spacing:-0.01em;color:var(--text);
   }
-  .showcase-pitch{font-size:14px;line-height:1.6;color:var(--text);margin:0;white-space:pre-wrap;flex:1;}
-  .showcase-pitch.empty{color:var(--text-faint);font-style:italic;}
 
   .showcase-empty{
     text-align:center;color:var(--text-muted);font-size:14px;padding:60px 20px;
@@ -156,24 +168,25 @@
     var tileCls = "tile-" + ((index % TILE_COUNT) + 1);
     var pitch = (p.showcase_pitch || "").trim();
     var pitchHTML = pitch
-      ? '<p class="showcase-pitch">' + esc(pitch) + '</p>'
-      : '<p class="showcase-pitch empty">Binnenkort meer hierover.</p>';
+      ? '<p class="showcase-overlay-text">' + esc(pitch) + '</p>'
+      : '<p class="showcase-overlay-text empty">Binnenkort meer hierover.</p>';
 
     var imageUrl = p.showcase_image_path
       ? supabaseClient.storage.from("showcase-images").getPublicUrl(p.showcase_image_path).data.publicUrl
       : null;
 
-    var headerHTML = imageUrl
+    var mediaHTML = imageUrl
       ? '<div class="showcase-card-image"><img src="' + esc(imageUrl) + '" alt="' + esc(p.name) + '"></div>'
-      : '<div class="showcase-card-header ' + tileCls + '"><h3>' + esc(p.name) + '</h3></div>';
-    var titleInBodyHTML = imageUrl ? '<h3 class="showcase-card-title">' + esc(p.name) + '</h3>' : '';
+      : '<div class="showcase-card-header ' + tileCls + '"></div>';
 
     return (
-      '<article class="showcase-card">' +
-        headerHTML +
+      '<article class="showcase-card" tabindex="0">' +
+        '<div class="showcase-card-image-wrap">' +
+          mediaHTML +
+          '<div class="showcase-card-pitch-overlay">' + pitchHTML + '</div>' +
+        '</div>' +
         '<div class="showcase-card-body">' +
-          titleInBodyHTML +
-          pitchHTML +
+          '<h3 class="showcase-card-title">' + esc(p.name) + '</h3>' +
         '</div>' +
       '</article>'
     );
