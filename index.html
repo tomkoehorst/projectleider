@@ -401,6 +401,8 @@
   }
   .showcase-field textarea:focus{border-color:var(--accent);outline:none;}
   .showcase-field textarea::placeholder{color:var(--text-faint);}
+  .showcase-image-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .showcase-image-preview{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--border);flex:none;}
 
   .row-footer{
     display:flex;align-items:center;justify-content:space-between;
@@ -721,6 +723,7 @@
       <input type="file" id="fileInput" accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,.txt" hidden>
     </div>
     <input type="file" id="projectFileInput" hidden>
+    <input type="file" id="showcaseImageInput" accept="image/*" hidden>
 
     <div id="listRoot">
       <main class="list" id="grid"></main>
@@ -858,6 +861,7 @@
   var allFiles = [];
   var currentUserId = null;
   var uploadTargetProjectId = null;
+  var uploadShowcaseImageTargetId = null;
 
   async function loadProjectFiles(){
     var res = await supabaseClient.from("project_files").select("*").order("uploaded_at", {ascending:false});
@@ -1266,7 +1270,8 @@
             'Toon dit project op de showcase-pagina' +
           '</label>' +
           (p.showcase
-            ? '<textarea id="showcase-pitch-' + id + '" data-id="' + id + '" placeholder="Korte pitch voor collega&rsquo;s (1-2 zinnen)...">' + esc(p.showcase_pitch) + '</textarea>'
+            ? '<textarea id="showcase-pitch-' + id + '" data-id="' + id + '" placeholder="Korte pitch voor collega&rsquo;s (1-2 zinnen)...">' + esc(p.showcase_pitch) + '</textarea>' +
+              showcaseImageRowHTML(id, p)
             : '') +
         '</div>' +
         filesSectionHTML(id) +
@@ -1297,6 +1302,19 @@
     if(n < 1024) return n + " B";
     if(n < 1024*1024) return Math.round(n/1024) + " KB";
     return (n/1024/1024).toFixed(1) + " MB";
+  }
+
+  function showcaseImageRowHTML(id, p){
+    var imgUrl = p.showcase_image_path
+      ? supabaseClient.storage.from("showcase-images").getPublicUrl(p.showcase_image_path).data.publicUrl
+      : null;
+    return '<div class="showcase-image-row">' +
+      (imgUrl ? '<img class="showcase-image-preview" src="' + esc(imgUrl) + '" alt="">' : '') +
+      '<button class="btn-text" data-action="upload-showcase-image" data-id="' + id + '" type="button">' +
+        (imgUrl ? "Afbeelding wijzigen" : "+ Afbeelding toevoegen") +
+      '</button>' +
+      (imgUrl ? '<button class="btn-text" data-action="remove-showcase-image" data-id="' + id + '" type="button">Verwijderen</button>' : '') +
+    '</div>';
   }
 
   function filesSectionHTML(id){
@@ -1625,6 +1643,23 @@
     if(action === "upload-file"){
       uploadTargetProjectId = id;
       document.getElementById("projectFileInput").click();
+      return;
+    }
+    if(action === "upload-showcase-image"){
+      uploadShowcaseImageTargetId = id;
+      document.getElementById("showcaseImageInput").click();
+      return;
+    }
+    if(action === "remove-showcase-image"){
+      var curImg = getData(id);
+      var oldPath = curImg ? curImg.showcase_image_path : null;
+      if(oldPath){
+        supabaseClient.storage.from("showcase-images").remove([oldPath]).then(function(){
+          updateProject(id, touch({showcase_image_path: null}));
+        });
+      } else {
+        updateProject(id, touch({showcase_image_path: null}));
+      }
       return;
     }
     if(action === "download-file"){
@@ -2071,6 +2106,33 @@
     });
     await loadProjectFiles();
     render();
+  });
+
+  var showcaseImageInput = document.getElementById("showcaseImageInput");
+  showcaseImageInput.addEventListener("change", async function(){
+    var file = showcaseImageInput.files[0];
+    showcaseImageInput.value = "";
+    if(!file || !uploadShowcaseImageTargetId) return;
+    if(file.type.indexOf("image/") !== 0){
+      window.alert("Kies een afbeelding (png/jpg/etc).");
+      return;
+    }
+    var MAX_BYTES = 8 * 1024 * 1024;
+    if(file.size > MAX_BYTES){
+      window.alert("Afbeelding is te groot (max 8MB).");
+      return;
+    }
+    var id = uploadShowcaseImageTargetId;
+    var cur = getData(id);
+    var oldPath = cur ? cur.showcase_image_path : null;
+    var path = id + "/" + Date.now() + "_" + file.name;
+    var upRes = await supabaseClient.storage.from("showcase-images").upload(path, file);
+    if(upRes.error){
+      window.alert("Upload mislukt: " + upRes.error.message);
+      return;
+    }
+    if(oldPath) await supabaseClient.storage.from("showcase-images").remove([oldPath]);
+    updateProject(id, touch({showcase_image_path: path}));
   });
 
   askForm.addEventListener("submit", async function(e){

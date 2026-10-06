@@ -80,28 +80,11 @@
     text-transform:uppercase;
   }
 
-  .showcase-hero{
-    background:var(--tile-bg);
-    color:var(--tile-ink);
-    border-radius:20px;
-    padding:52px 40px;
-    margin-bottom:28px;
-  }
-  .showcase-eyebrow{
-    font-size:12px;text-transform:uppercase;letter-spacing:0.14em;
-    font-weight:700;margin:0 0 14px;opacity:0.85;
-  }
-  .showcase-hero h1{
-    font-family:"Helvetica Neue", Helvetica, Arial, sans-serif;
-    font-weight:800;font-size:clamp(34px, 5vw, 56px);letter-spacing:-0.02em;
-    margin:0 0 14px;line-height:1.02;text-wrap:balance;
-  }
-  .showcase-hero p{font-size:16px;line-height:1.55;margin:0;max-width:560px;opacity:0.92;}
-
   .showcase-grid{
     display:grid;
     grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));
     gap:18px;
+    margin-top:24px;
   }
   .showcase-card{
     background:var(--surface);
@@ -123,7 +106,14 @@
     font-weight:800;font-size:23px;margin:0;letter-spacing:-0.01em;
     line-height:1.15;text-wrap:balance;
   }
+  .showcase-card-image{
+    height:170px;background-size:cover;background-position:center;background-color:var(--border);
+  }
   .showcase-card-body{padding:18px 22px 22px;display:flex;flex-direction:column;gap:10px;flex:1;}
+  .showcase-card-title{
+    font-family:"Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-weight:800;font-size:19px;margin:0;letter-spacing:-0.01em;color:var(--text);
+  }
   .showcase-pitch{font-size:14px;line-height:1.6;color:var(--text);margin:0;white-space:pre-wrap;flex:1;}
   .showcase-pitch.empty{color:var(--text-faint);font-style:italic;}
 
@@ -137,11 +127,6 @@
 <body>
 <div class="page">
   <div class="showcase-masthead">BOOSTER digitale realisatie</div>
-  <div class="showcase-hero tile-7">
-    <p class="showcase-eyebrow">Waar ik nu aan werk</p>
-    <h1>Digitaliseringsprojecten</h1>
-    <p>Een overzicht van de projecten waar ik momenteel mee bezig ben &mdash; bijgehouden vanuit mijn eigen projectoverzicht.</p>
-  </div>
 
   <p class="showcase-loading" id="loadingState">Bezig met laden&hellip;</p>
   <p class="showcase-empty" id="emptyState" hidden>Nog geen projecten gemarkeerd voor de showcase.</p>
@@ -168,10 +153,20 @@
       ? '<p class="showcase-pitch">' + esc(pitch) + '</p>'
       : '<p class="showcase-pitch empty">Binnenkort meer hierover.</p>';
 
+    var imageUrl = p.showcase_image_path
+      ? supabaseClient.storage.from("showcase-images").getPublicUrl(p.showcase_image_path).data.publicUrl
+      : null;
+
+    var headerHTML = imageUrl
+      ? '<div class="showcase-card-image" style="background-image:url(&quot;' + esc(imageUrl) + '&quot;)" role="img" aria-label="' + esc(p.name) + '"></div>'
+      : '<div class="showcase-card-header ' + tileCls + '"><h3>' + esc(p.name) + '</h3></div>';
+    var titleInBodyHTML = imageUrl ? '<h3 class="showcase-card-title">' + esc(p.name) + '</h3>' : '';
+
     return (
       '<article class="showcase-card">' +
-        '<div class="showcase-card-header ' + tileCls + '"><h3>' + esc(p.name) + '</h3></div>' +
+        headerHTML +
         '<div class="showcase-card-body">' +
+          titleInBodyHTML +
           pitchHTML +
         '</div>' +
       '</article>'
