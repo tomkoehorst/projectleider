@@ -84,7 +84,7 @@
   }
   .showcase-card-image{
     height:180px;
-    background:#F2F1EC;
+    background:var(--tile-bg);
     display:flex;align-items:center;justify-content:center;
     padding:18px;
   }
@@ -156,7 +156,7 @@
       : null;
 
     var mediaHTML = imageUrl
-      ? '<div class="showcase-card-image"><img src="' + esc(imageUrl) + '" alt="' + esc(p.name) + '"></div>'
+      ? '<div class="showcase-card-image ' + tileCls + '"><img src="' + esc(imageUrl) + '" alt="' + esc(p.name) + '"></div>'
       : '<div class="showcase-card-header ' + tileCls + '"></div>';
 
     return (
