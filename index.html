@@ -158,6 +158,43 @@
   .btn-text.danger:hover{color:var(--risk);}
 
   .stats{
+    display:flex;flex-direction:column;gap:12px;
+    margin-bottom:20px;
+  }
+  .stats-overview{
+    display:flex;align-items:center;gap:22px;flex-wrap:wrap;
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:16px 20px;
+  }
+  .stats-total{flex:none;padding-right:20px;border-right:1px solid var(--border);}
+  .stats-total-value{
+    font-family:"IBM Plex Mono", monospace;
+    font-variant-numeric:tabular-nums;
+    font-size:32px;font-weight:600;margin:0;line-height:1.1;
+  }
+  .status-bar-wrap{flex:1;min-width:220px;display:flex;flex-direction:column;gap:9px;}
+  .status-bar{
+    display:flex;height:12px;border-radius:999px;overflow:hidden;
+    background:var(--border);gap:2px;
+  }
+  .status-seg{display:block;height:100%;}
+  .status-seg-good{background:var(--good);}
+  .status-seg-warn{background:var(--warn);}
+  .status-seg-risk{background:var(--risk);}
+  .status-seg-paused{background:var(--text-faint);}
+  .status-seg-empty{background:var(--border);}
+  .status-legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--text-muted);}
+  .status-legend-item{display:flex;align-items:center;gap:5px;}
+  .status-legend-item strong{color:var(--text);font-weight:600;}
+  .status-dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .status-dot-good{background:var(--good);}
+  .status-dot-warn{background:var(--warn);}
+  .status-dot-risk{background:var(--risk);}
+  .status-dot-paused{background:var(--text-faint);}
+
+  .stats-row{
     display:grid;
     grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
     gap:1px;
@@ -165,7 +202,6 @@
     border:1px solid var(--border);
     border-radius:10px;
     overflow:visible;
-    margin-bottom:20px;
   }
   .stat{background:var(--surface);padding:14px 16px;}
   .stat-label{
@@ -180,6 +216,7 @@
   .stat-value.risk{color:var(--risk);}
   .stat-value.warn{color:var(--warn);}
   .stat-sub{font-size:12px;color:var(--text-muted);margin-top:2px;}
+  .score-tile .mini-progress{margin-top:8px;margin-bottom:4px;}
 
   .list{
     display:flex;flex-direction:column;
@@ -466,22 +503,29 @@
     background:var(--surface);
     border:1px solid var(--border);
     border-radius:10px;
-    padding:14px 16px;
+    padding:16px 18px;
     margin-bottom:20px;
   }
+  .milestones-card .briefing-label{font-size:12px;margin-bottom:10px;}
   .milestone-row{
-    display:flex;align-items:baseline;justify-content:space-between;gap:12px;
-    padding:6px 0;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:9px 0;
     border-bottom:1px solid var(--border);
     font-size:13.5px;
   }
   .milestone-row:last-child{border-bottom:none;}
-  .milestone-row-name{font-weight:500;}
-  .milestone-row-when{
-    color:var(--text-muted);font-family:"IBM Plex Mono",monospace;
-    font-size:12.5px;white-space:nowrap;
+  .milestone-row-left{display:flex;align-items:center;gap:8px;min-width:0;overflow:hidden;}
+  .milestone-dot{width:8px;height:8px;border-radius:50%;flex:none;}
+  .milestone-row-name{font-weight:500;white-space:nowrap;}
+  .milestone-row-desc{color:var(--text-muted);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .milestone-badge{
+    flex:none;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;
+    font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;white-space:nowrap;
+    cursor:default;
   }
-  .milestone-row-when.urgent{color:var(--risk);}
+  .milestone-badge.overdue{background:var(--risk-bg);color:var(--risk);}
+  .milestone-badge.urgent{background:var(--warn-bg);color:var(--warn);}
+  .milestone-badge.normal{background:var(--accent-soft);color:var(--accent);}
   .milestone-empty{font-size:13.5px;color:var(--text-muted);margin:0;}
 
   .undo-bar{
@@ -889,22 +933,28 @@
   function renderMilestonesTimeline(){
     var el = document.getElementById("milestonesCard");
     if(!el) return;
-    var today = todayISO();
     var upcoming = workingDocs()
-      .filter(function(p){ return p.milestone_date && p.milestone_date >= today; })
+      .filter(function(p){ return !!p.milestone_date; })
       .sort(function(a,b){ return a.milestone_date < b.milestone_date ? -1 : 1; })
       .slice(0,5);
     if(upcoming.length === 0){
-      el.innerHTML = '<p class="briefing-label">Aankomende mijlpalen</p><p class="milestone-empty">Geen geplande mijlpalen.</p>';
+      el.innerHTML = '<p class="briefing-label">&#128205; Aankomende mijlpalen</p><p class="milestone-empty">Geen geplande mijlpalen.</p>';
       return;
     }
-    el.innerHTML = '<p class="briefing-label">Aankomende mijlpalen</p>' +
+    el.innerHTML = '<p class="briefing-label">&#128205; Aankomende mijlpalen</p>' +
       upcoming.map(function(p){
         var ms = milestoneSummary(p);
-        var desc = p.milestone_text ? esc(p.milestone_text) : '';
+        var days = daysUntil(p.milestone_date);
+        var badgeCls = days < 0 ? "overdue" : days <= 3 ? "urgent" : "normal";
+        var desc = p.milestone_text ? '<span class="milestone-row-desc"> &middot; ' + esc(p.milestone_text) + '</span>' : '';
+        var bucket = healthBucket(getHealth(p));
         return '<div class="milestone-row">' +
-          '<span class="milestone-row-name">' + esc(p.name) + (desc ? ' &middot; ' + desc : '') + '</span>' +
-          '<span class="milestone-row-when' + (ms.urgent ? ' urgent' : '') + '">' + esc(ms.text) + ' &middot; ' + fmtDate(p.milestone_date) + '</span>' +
+          '<span class="milestone-row-left">' +
+            '<span class="milestone-dot" style="background:' + bucket.color + '" title="' + esc(bucket.label) + '"></span>' +
+            '<span class="milestone-row-name">' + esc(p.name) + '</span>' +
+            desc +
+          '</span>' +
+          '<span class="milestone-badge ' + badgeCls + '" title="' + fmtDate(p.milestone_date) + '">' + esc(ms.text) + '</span>' +
         '</div>';
       }).join("");
   }
@@ -1037,11 +1087,6 @@
       var todos = d.todos;
       return sum + (Array.isArray(todos) ? todos.filter(function(t){ return !t.done; }).length : 0);
     }, 0);
-    var today = todayISO();
-    var upcoming = active
-      .filter(function(p){ return p.milestone_date; })
-      .sort(function(a,b){ return a.milestone_date < b.milestone_date ? -1 : 1; });
-    var next = upcoming.find(function(p){ return p.milestone_date >= today; }) || upcoming[0];
 
     var weekStart = startOfWeek();
     var freshCount = active.filter(function(p){ return p.updated_at && new Date(p.updated_at) >= weekStart; }).length;
@@ -1050,6 +1095,7 @@
     var healthAvg = total ? active.reduce(function(s,d){ return s + getHealth(d); }, 0) / total : 0;
     var score = Math.round(healthAvg * 0.7 + freshPct * 0.3);
     var scoreQualifier = score >= 80 ? "Sterk" : score >= 55 ? "Redelijk" : "Aandacht nodig";
+    var scoreColor = score >= 80 ? "var(--good)" : score >= 55 ? "var(--warn)" : "var(--risk)";
 
     var STALE_DAYS = 14;
     var needsAttention = active
@@ -1088,21 +1134,40 @@
         '<p class="score-tooltip-tip">' + esc(tipText) + '</p>' +
       '</div>';
 
+    var segments = [
+      {count: good, cls: "good", label: "Op schema"},
+      {count: warn, cls: "warn", label: "Aandacht"},
+      {count: risk, cls: "risk", label: "Risico"},
+      {count: pausedCount, cls: "paused", label: "Gepauzeerd"}
+    ].filter(function(s){ return s.count > 0; });
+
+    var barHTML = segments.length
+      ? segments.map(function(s){
+          return '<span class="status-seg status-seg-' + s.cls + '" style="flex:' + s.count + ' ' + s.count + ' 0%" title="' + esc(s.label) + ': ' + s.count + '"></span>';
+        }).join("")
+      : '<span class="status-seg status-seg-empty" style="flex:1 1 0%"></span>';
+
+    var legendHTML = segments.map(function(s){
+      return '<span class="status-legend-item"><span class="status-dot status-dot-' + s.cls + '"></span>' + esc(s.label) + ' <strong>' + s.count + '</strong></span>';
+    }).join("") || '<span class="status-legend-item">Nog geen actieve projecten</span>';
+
     statsEl.innerHTML =
-      '<div class="stat"><p class="stat-label">Projecten</p><p class="stat-value">' + total + '</p></div>' +
-      '<div class="stat"><p class="stat-label">Op schema</p><p class="stat-value">' + good + '</p></div>' +
-      '<div class="stat"><p class="stat-label">Aandacht</p><p class="stat-value warn">' + warn + '</p></div>' +
-      '<div class="stat"><p class="stat-label">Risico</p><p class="stat-value risk">' + risk + '</p></div>' +
-      '<div class="stat"><p class="stat-label">Gepauzeerd</p><p class="stat-value">' + pausedCount + '</p></div>' +
-      '<div class="stat"><p class="stat-label">Open to do&rsquo;s</p><p class="stat-value">' + openTodoCount + '</p></div>' +
-      '<div class="stat"><p class="stat-label">Eerstvolgende mijlpaal</p><p class="stat-value" style="font-size:15px;">' +
-        (next ? esc(next.name) : "&ndash;") +
-        '</p><p class="stat-sub">' + (next ? fmtDate(next.milestone_date) : "Geen mijlpalen gepland") + '</p></div>' +
-      '<div class="stat"><p class="stat-label">Deze week bijgewerkt</p><p class="stat-value">' + freshCount + '/' + total + '</p>' +
-        '<div class="mini-progress"><div class="mini-progress-fill" style="width:' + freshPct + '%"></div></div></div>' +
-      '<div class="stat score-tile" tabindex="0"><p class="stat-label">Dashboard-score</p><p class="stat-value">' + score + '</p>' +
-        '<p class="score-qualifier">' + scoreQualifier + '</p>' +
-        scoreTooltip +
+      '<div class="stats-overview">' +
+        '<div class="stats-total"><p class="stats-total-value">' + total + '</p><p class="stat-label">Actieve projecten</p></div>' +
+        '<div class="status-bar-wrap">' +
+          '<div class="status-bar">' + barHTML + '</div>' +
+          '<div class="status-legend">' + legendHTML + '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="stats-row">' +
+        '<div class="stat score-tile" tabindex="0"><p class="stat-label">Dashboard-score</p><p class="stat-value">' + score + '</p>' +
+          '<div class="mini-progress"><div class="mini-progress-fill" style="width:' + score + '%;background:' + scoreColor + '"></div></div>' +
+          '<p class="score-qualifier">' + scoreQualifier + '</p>' +
+          scoreTooltip +
+        '</div>' +
+        '<div class="stat"><p class="stat-label">Open to do&rsquo;s</p><p class="stat-value">' + openTodoCount + '</p></div>' +
+        '<div class="stat"><p class="stat-label">Deze week bijgewerkt</p><p class="stat-value">' + freshCount + '/' + total + '</p>' +
+          '<div class="mini-progress"><div class="mini-progress-fill" style="width:' + freshPct + '%"></div></div></div>' +
       '</div>';
   }
 
