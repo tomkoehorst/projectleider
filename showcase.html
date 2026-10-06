@@ -185,8 +185,7 @@
       ? '<div class="showcase-card-image ' + tileCls + '"><img src="' + esc(imageUrl) + '" alt="' + esc(p.name) + '"></div>'
       : '<div class="showcase-card-header ' + tileCls + '"></div>';
 
-    var featured = index % 4 === 0;
-    var cardCls = "showcase-card" + (featured ? " showcase-card-featured" : "");
+    var cardCls = "showcase-card" + (p.showcase_featured ? " showcase-card-featured" : "");
 
     return (
       '<article class="' + cardCls + '" tabindex="0">' +

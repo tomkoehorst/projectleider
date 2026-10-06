@@ -394,6 +394,8 @@
     display:flex;align-items:center;gap:8px;font-size:13.5px;cursor:pointer;
   }
   .showcase-toggle input{accent-color:var(--accent);}
+  .showcase-prio-btn{align-self:flex-start;}
+  .showcase-prio-btn.active{color:var(--accent);font-weight:600;}
   .showcase-field textarea{
     font-family:inherit;font-size:13px;line-height:1.4;
     border:1px solid var(--border);border-radius:6px;padding:8px 10px;
@@ -1270,7 +1272,10 @@
             'Toon dit project op de showcase-pagina' +
           '</label>' +
           (p.showcase
-            ? '<textarea id="showcase-pitch-' + id + '" data-id="' + id + '" placeholder="Korte pitch voor collega&rsquo;s (1-2 zinnen)...">' + esc(p.showcase_pitch) + '</textarea>' +
+            ? '<button class="btn-text showcase-prio-btn' + (p.showcase_featured ? ' active' : '') + '" data-action="toggle-showcase-prio" data-id="' + id + '" type="button">' +
+                (p.showcase_featured ? '&#9733; Groot op showcase' : '&#9734; Groot tonen op showcase') +
+              '</button>' +
+              '<textarea id="showcase-pitch-' + id + '" data-id="' + id + '" placeholder="Korte pitch voor collega&rsquo;s (1-2 zinnen)...">' + esc(p.showcase_pitch) + '</textarea>' +
               showcaseImageRowHTML(id, p)
             : '') +
         '</div>' +
@@ -1633,6 +1638,11 @@
     }
     if(action === "resume-project"){
       updateProject(id, touch({paused: false}));
+      return;
+    }
+    if(action === "toggle-showcase-prio"){
+      var curPrio = getData(id);
+      updateProject(id, touch({showcase_featured: !(curPrio && curPrio.showcase_featured)}));
       return;
     }
     if(action === "toggle-paused"){
