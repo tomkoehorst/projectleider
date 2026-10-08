@@ -54,25 +54,34 @@
   [hidden]{display:none!important;}
 
   .showcase-masthead{
+    position:relative;
     background:#F2E8D6;
     border-radius:16px;
-    padding:22px 28px;
+    padding:30px 100px 26px;
     margin-bottom:28px;
+    text-align:center;
   }
-  .masthead-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;}
-  .masthead-brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;}
-  .masthead-mark{width:16px;height:16px;border-radius:5px;background:#4a3aa7;flex:none;align-self:center;}
-  .masthead-text{
+  .masthead-brand{
     display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;
-    font-weight:800;font-size:40px;letter-spacing:-0.01em;color:#4a3aa7;line-height:1;
+    justify-content:center;
+  }
+  .masthead-text{
+    font-weight:800;font-size:clamp(28px, 5vw, 40px);letter-spacing:-0.01em;color:#4a3aa7;line-height:1;
   }
   .masthead-sub{
     font-weight:600;font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:#6B6150;
   }
   .masthead-tagline{
-    margin:14px 0 0;font-size:15.5px;line-height:1.5;color:#4a4136;max-width:620px;
+    margin:14px auto 0;font-size:15.5px;line-height:1.5;color:#4a4136;max-width:560px;
   }
+  .masthead-logo-link{position:absolute;top:22px;right:26px;}
   .masthead-logo{height:48px;width:auto;flex:none;}
+  @media (max-width:480px){
+    .showcase-masthead{padding:26px 20px 22px;}
+    .masthead-brand{flex-direction:column;align-items:center;gap:4px;}
+    .masthead-logo-link{top:16px;right:16px;}
+    .masthead-logo{height:34px;}
+  }
 
   .showcase-grid{
     display:grid;
@@ -150,15 +159,13 @@
 <body>
 <div class="page">
   <div class="showcase-masthead">
-    <div class="masthead-top">
-      <span class="masthead-brand">
-        <span class="masthead-mark"></span>
-        <span class="masthead-text">BOOSTER<span class="masthead-sub">digitale realisatie</span></span>
-      </span>
-      <a href="https://www.utrecht.nl" target="_blank" rel="noopener">
-        <img class="masthead-logo" src="assets/gemeente-utrecht-logo.webp" alt="Gemeente Utrecht">
-      </a>
-    </div>
+    <a class="masthead-logo-link" href="https://www.utrecht.nl" target="_blank" rel="noopener">
+      <img class="masthead-logo" src="assets/gemeente-utrecht-logo.webp" alt="Gemeente Utrecht">
+    </a>
+    <span class="masthead-brand">
+      <span class="masthead-text">BOOSTER</span>
+      <span class="masthead-sub">digitale realisatie</span>
+    </span>
     <p class="masthead-tagline">De booster die binnen de sociale basis zorgt voor digitale realisatie &mdash; voor de stad en de burger.</p>
   </div>
 
