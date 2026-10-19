@@ -362,12 +362,27 @@
     text-align:left;
   }
 
-  .notes-log{display:flex;flex-direction:column;gap:8px;margin-bottom:8px;}
-  .note-entry{display:flex;align-items:flex-start;gap:8px;font-size:13.5px;}
-  .note-date{
-    font-family:"IBM Plex Mono", monospace;font-variant-numeric:tabular-nums;
-    font-size:11.5px;color:var(--text-faint);white-space:nowrap;margin-top:2px;flex:none;
+  .notes-log{display:flex;flex-direction:column;gap:4px;margin-bottom:8px;}
+  .note-date-group{display:flex;flex-direction:column;}
+  .note-date-header{
+    display:flex;align-items:center;gap:8px;
+    background:none;border:none;padding:6px 0;cursor:pointer;width:100%;text-align:left;
   }
+  .note-date-chevron{
+    display:inline-block;font-size:10px;color:var(--text-faint);
+    transition:transform .12s ease;flex:none;
+  }
+  .note-date-chevron.open{transform:rotate(90deg);}
+  .note-date-label{
+    font-family:"IBM Plex Mono", monospace;font-variant-numeric:tabular-nums;
+    font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;
+  }
+  .note-date-count{font-size:11.5px;color:var(--text-faint);}
+  .note-date-items{
+    display:flex;flex-direction:column;gap:8px;
+    padding:2px 0 8px 18px;
+  }
+  .note-entry{display:flex;align-items:flex-start;gap:8px;font-size:13.5px;}
   .note-entry .note-text{flex:1;line-height:1.5;white-space:pre-wrap;}
   .note-del{
     flex:none;background:none;border:none;color:var(--text-faint);
@@ -1237,11 +1252,29 @@
     }).join("") || '<p class="todo-empty">Geen open to do&rsquo;s</p>';
 
     var notesArr = Array.isArray(p.notes) ? p.notes : [];
-    var notesHTML = notesArr.map(function(n){
-      return '<div class="note-entry">' +
-        '<span class="note-date">' + esc(fmtDate(n.date)) + '</span>' +
-        '<span class="note-text">' + esc(n.text) + '</span>' +
-        '<button class="note-del" title="Verwijderen" data-action="delete-note" data-id="' + id + '" data-note="' + n.id + '">&times;</button>' +
+    var noteGroups = [];
+    notesArr.forEach(function(n){
+      var lastGroup = noteGroups[noteGroups.length - 1];
+      if(lastGroup && lastGroup.date === n.date){ lastGroup.items.push(n); }
+      else { noteGroups.push({date: n.date, items: [n]}); }
+    });
+    var notesOpenMap = ui.notesOpen || {};
+    var notesHTML = noteGroups.map(function(g, gi){
+      var isOpen = notesOpenMap.hasOwnProperty(g.date) ? notesOpenMap[g.date] : (gi === 0);
+      var countLabel = g.items.length + (g.items.length === 1 ? " notitie" : " notities");
+      var itemsHTML = g.items.map(function(n){
+        return '<div class="note-entry">' +
+          '<span class="note-text">' + esc(n.text) + '</span>' +
+          '<button class="note-del" title="Verwijderen" data-action="delete-note" data-id="' + id + '" data-note="' + n.id + '">&times;</button>' +
+        '</div>';
+      }).join("");
+      return '<div class="note-date-group">' +
+        '<button type="button" class="note-date-header" data-action="toggle-note-date" data-id="' + id + '" data-date="' + esc(g.date) + '">' +
+          '<span class="note-date-chevron' + (isOpen ? " open" : "") + '">&#9656;</span>' +
+          '<span class="note-date-label">' + esc(fmtDate(g.date)) + '</span>' +
+          '<span class="note-date-count">' + countLabel + '</span>' +
+        '</button>' +
+        (isOpen ? '<div class="note-date-items">' + itemsHTML + '</div>' : "") +
       '</div>';
     }).join("") || '<p class="note-empty">Nog geen notities</p>';
 
@@ -1603,6 +1636,19 @@
       var noteCur2 = getData(id);
       var notes2 = (noteCur2 && Array.isArray(noteCur2.notes)) ? noteCur2.notes.filter(function(n){ return n.id !== noteId; }) : [];
       updateProject(id, touch({notes: notes2}));
+      return;
+    }
+    if(action === "toggle-note-date"){
+      var dateKey = actionEl.getAttribute("data-date");
+      var curUi = uiState[id] || {};
+      var notesOpen = Object.assign({}, curUi.notesOpen);
+      var dataForDefault = getData(id);
+      var arrForDefault = (dataForDefault && Array.isArray(dataForDefault.notes)) ? dataForDefault.notes : [];
+      var defaultOpen = arrForDefault.length > 0 && arrForDefault[0].date === dateKey;
+      var wasOpen = notesOpen.hasOwnProperty(dateKey) ? notesOpen[dateKey] : defaultOpen;
+      notesOpen[dateKey] = !wasOpen;
+      uiState[id] = Object.assign({}, curUi, {notesOpen: notesOpen});
+      render();
       return;
     }
     if(action === "ask-delete"){
