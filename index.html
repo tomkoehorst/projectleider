@@ -389,6 +389,26 @@
     cursor:pointer;font-size:15px;line-height:1;padding:0 2px;
   }
   .note-del:hover{color:var(--risk);}
+  .note-edit-btn{
+    flex:none;background:none;border:none;color:var(--text-faint);
+    cursor:pointer;font-size:13px;line-height:1;padding:0 2px;
+  }
+  .note-edit-btn:hover{color:var(--accent);}
+  .note-entry-editing{flex-direction:column;align-items:stretch;gap:6px;}
+  .note-entry-editing textarea{
+    font-family:inherit;font-size:13px;line-height:1.4;
+    border:1px solid var(--accent);border-radius:6px;padding:6px 8px;
+    background:var(--surface);color:var(--text);resize:vertical;min-height:40px;width:100%;
+  }
+  .note-edit-actions{display:flex;gap:8px;}
+  .note-search-row{margin-bottom:6px;}
+  .note-search-row input{
+    width:100%;font-family:inherit;font-size:13px;
+    border:1px solid var(--border);border-radius:6px;padding:6px 8px;
+    background:var(--surface);color:var(--text);
+  }
+  .note-search-row input:focus{border-color:var(--accent);outline:none;}
+  .note-search-row input::placeholder{color:var(--text-faint);}
   .note-empty{font-size:13px;color:var(--text-faint);font-style:italic;}
   .note-add{display:flex;gap:6px;margin-top:2px;}
   .note-add textarea{
@@ -1258,13 +1278,31 @@
       if(lastGroup && lastGroup.date === n.date){ lastGroup.items.push(n); }
       else { noteGroups.push({date: n.date, items: [n]}); }
     });
+    var noteSearchQuery = (ui.noteSearchQuery || "").trim();
+    var noteSearchLower = noteSearchQuery.toLowerCase();
+    var displayGroups = noteSearchLower
+      ? noteGroups.map(function(g){
+          return {date: g.date, items: g.items.filter(function(n){ return n.text.toLowerCase().indexOf(noteSearchLower) !== -1; })};
+        }).filter(function(g){ return g.items.length > 0; })
+      : noteGroups;
     var notesOpenMap = ui.notesOpen || {};
-    var notesHTML = noteGroups.map(function(g, gi){
-      var isOpen = notesOpenMap.hasOwnProperty(g.date) ? notesOpenMap[g.date] : (gi === 0);
+    var notesHTML = displayGroups.map(function(g, gi){
+      var isOpen = noteSearchLower ? true : (notesOpenMap.hasOwnProperty(g.date) ? notesOpenMap[g.date] : (gi === 0));
       var countLabel = g.items.length + (g.items.length === 1 ? " notitie" : " notities");
       var itemsHTML = g.items.map(function(n){
+        var noteUi = uiState["note-" + n.id] || {};
+        if(noteUi.editing){
+          return '<div class="note-entry note-entry-editing">' +
+            '<textarea id="note-edit-' + n.id + '">' + esc(n.text) + '</textarea>' +
+            '<div class="note-edit-actions">' +
+              '<button class="btn-text" data-action="save-note-edit" data-id="' + id + '" data-note="' + n.id + '" type="button">Opslaan</button>' +
+              '<button class="btn-text" data-action="cancel-note-edit" data-note="' + n.id + '" type="button">Annuleren</button>' +
+            '</div>' +
+          '</div>';
+        }
         return '<div class="note-entry">' +
           '<span class="note-text">' + esc(n.text) + '</span>' +
+          '<button class="note-edit-btn" title="Bewerken" data-action="edit-note" data-note="' + n.id + '">&#9998;</button>' +
           '<button class="note-del" title="Verwijderen" data-action="delete-note" data-id="' + id + '" data-note="' + n.id + '">&times;</button>' +
         '</div>';
       }).join("");
@@ -1276,7 +1314,14 @@
         '</button>' +
         (isOpen ? '<div class="note-date-items">' + itemsHTML + '</div>' : "") +
       '</div>';
-    }).join("") || '<p class="note-empty">Nog geen notities</p>';
+    }).join("") || (noteSearchQuery
+      ? '<p class="note-empty">Geen notities gevonden voor &ldquo;' + esc(noteSearchQuery) + '&rdquo;</p>'
+      : '<p class="note-empty">Nog geen notities</p>');
+    var noteSearchHTML = notesArr.length
+      ? '<div class="note-search-row">' +
+          '<input type="search" id="note-search-' + id + '" data-id="' + id + '" placeholder="Zoek in notities..." value="' + esc(ui.noteSearchQuery || "") + '">' +
+        '</div>'
+      : "";
 
     return (
       '<div class="row-detail">' +
@@ -1292,6 +1337,7 @@
         '</div>' +
         '<div>' +
           '<p class="field-label">Notities</p>' +
+          noteSearchHTML +
           '<div class="notes-log">' + notesHTML + '</div>' +
           '<div class="note-add">' +
             '<textarea id="note-input-' + id + '" placeholder="Nieuwe notitie..."></textarea>' +
@@ -1638,6 +1684,31 @@
       updateProject(id, touch({notes: notes2}));
       return;
     }
+    if(action === "edit-note"){
+      var editNoteId = actionEl.getAttribute("data-note");
+      uiState["note-" + editNoteId] = {editing: true};
+      render();
+      return;
+    }
+    if(action === "cancel-note-edit"){
+      var cancelNoteId = actionEl.getAttribute("data-note");
+      uiState["note-" + cancelNoteId] = {editing: false};
+      render();
+      return;
+    }
+    if(action === "save-note-edit"){
+      var saveNoteId = actionEl.getAttribute("data-note");
+      var editTextarea = document.getElementById("note-edit-" + saveNoteId);
+      var newNoteText = editTextarea ? editTextarea.value.trim() : "";
+      if(!newNoteText) return;
+      var noteCur3 = getData(id);
+      var notes3 = (noteCur3 && Array.isArray(noteCur3.notes)) ? noteCur3.notes.map(function(n){
+        return n.id === saveNoteId ? Object.assign({}, n, {text: newNoteText}) : n;
+      }) : [];
+      uiState["note-" + saveNoteId] = {editing: false};
+      updateProject(id, touch({notes: notes3}));
+      return;
+    }
     if(action === "toggle-note-date"){
       var dateKey = actionEl.getAttribute("data-date");
       var curUi = uiState[id] || {};
@@ -1848,6 +1919,12 @@
     var t = e.target;
     if(t.matches && t.matches('[data-action="health-slider"]')){
       applyHealthLive(t.getAttribute("data-id"), parseInt(t.value, 10));
+      return;
+    }
+    if(t.id && t.id.indexOf("note-search-") === 0){
+      var searchId = t.getAttribute("data-id");
+      uiState[searchId] = Object.assign({}, uiState[searchId], {noteSearchQuery: t.value});
+      render();
       return;
     }
   }
