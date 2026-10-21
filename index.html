@@ -489,8 +489,8 @@
   .deep-toggle input{accent-color:var(--accent);}
 
   .chat-presets{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;}
-  .attach-btn.recording{background:var(--risk-bg);color:var(--risk);}
-  .attach-btn.active{background:var(--accent-soft);color:var(--accent);}
+  .attach-btn.voice-active{background:var(--accent-soft);color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+  .attach-btn.recording{background:var(--risk-bg);color:var(--risk);box-shadow:0 0 0 3px var(--risk-bg);}
 
   .briefing-card{
     border-left:3px solid var(--accent);
@@ -750,8 +750,7 @@
       <div class="attached-chip" id="attachedChip" hidden></div>
       <form id="askForm" class="ask-row">
         <button type="button" id="attachBtn" class="attach-btn" title="Bestand bijvoegen">&#128206;</button>
-        <button type="button" id="micBtn" class="attach-btn" title="Inspreken">&#127908;</button>
-        <button type="button" id="speakToggleBtn" class="attach-btn" title="Lees antwoorden hardop voor">&#128264;</button>
+        <button type="button" id="micBtn" class="attach-btn" title="Spraakgesprek starten">&#127908;</button>
         <textarea id="askInput" placeholder="Bijv. help me een agenda voorbereiden voor het overleg over Wizzportaal"></textarea>
         <button type="submit" class="btn-primary">Vraag</button>
       </form>
@@ -2161,58 +2160,65 @@
 
   var micBtn = document.getElementById("micBtn");
   var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var recognition = null;
-  if(SpeechRecognitionCtor){
-    recognition = new SpeechRecognitionCtor();
+  var speechSynthesisSupported = "speechSynthesis" in window;
+  var recognition = SpeechRecognitionCtor ? new SpeechRecognitionCtor() : null;
+  var voiceModeActive = false;
+
+  function speak(text, onDone){
+    if(!speechSynthesisSupported || !text){ if(onDone) onDone(); return; }
+    try{
+      window.speechSynthesis.cancel();
+      var utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "nl-NL";
+      utter.onend = function(){ if(onDone) onDone(); };
+      utter.onerror = function(){ if(onDone) onDone(); };
+      window.speechSynthesis.speak(utter);
+    }catch(e){ if(onDone) onDone(); }
+  }
+
+  function startListening(){
+    if(!voiceModeActive || !recognition) return;
+    micBtn.classList.add("recording");
+    try{ recognition.start(); }catch(e){ micBtn.classList.remove("recording"); }
+  }
+
+  function stopVoiceMode(){
+    voiceModeActive = false;
+    micBtn.classList.remove("recording", "voice-active");
+    micBtn.title = "Spraakgesprek starten";
+    if(recognition){ try{ recognition.stop(); }catch(e){} }
+    try{ window.speechSynthesis.cancel(); }catch(e){}
+  }
+
+  function startVoiceMode(){
+    voiceModeActive = true;
+    micBtn.classList.add("voice-active");
+    micBtn.title = "Spraakgesprek bezig — klik om te stoppen";
+    startListening();
+  }
+
+  if(recognition){
     recognition.lang = "nl-NL";
     recognition.interimResults = false;
     recognition.continuous = false;
     recognition.onresult = function(e){
       var text = e.results[0][0].transcript;
       askInput.value = (askInput.value ? askInput.value.trim() + " " : "") + text;
-      askInput.focus();
+      if(voiceModeActive){ askForm.requestSubmit(); } else { askInput.focus(); }
     };
     recognition.onend = function(){ micBtn.classList.remove("recording"); };
-    recognition.onerror = function(){ micBtn.classList.remove("recording"); };
+    recognition.onerror = function(e){
+      micBtn.classList.remove("recording");
+      if(voiceModeActive){
+        if(e.error === "no-speech") startListening();
+        else stopVoiceMode();
+      }
+    };
     micBtn.addEventListener("click", function(){
-      micBtn.classList.add("recording");
-      try{ recognition.start(); }catch(e){ micBtn.classList.remove("recording"); }
+      if(voiceModeActive){ stopVoiceMode(); } else { startVoiceMode(); }
     });
   } else {
     micBtn.hidden = true;
-  }
-
-  var speakToggleBtn = document.getElementById("speakToggleBtn");
-  var speechSynthesisSupported = "speechSynthesis" in window;
-  var speakEnabled = false;
-  try{ speakEnabled = localStorage.getItem("projectradar_speak") === "1"; }catch(e){}
-
-  function updateSpeakToggleBtn(){
-    speakToggleBtn.innerHTML = speakEnabled ? "&#128266;" : "&#128264;";
-    speakToggleBtn.classList.toggle("active", speakEnabled);
-    speakToggleBtn.title = speakEnabled ? "Voorlezen staat aan (klik om uit te zetten)" : "Lees antwoorden hardop voor";
-  }
-
-  function speakText(text){
-    if(!speakEnabled || !speechSynthesisSupported || !text) return;
-    try{
-      window.speechSynthesis.cancel();
-      var utter = new SpeechSynthesisUtterance(text);
-      utter.lang = "nl-NL";
-      window.speechSynthesis.speak(utter);
-    }catch(e){}
-  }
-
-  if(speechSynthesisSupported){
-    updateSpeakToggleBtn();
-    speakToggleBtn.addEventListener("click", function(){
-      speakEnabled = !speakEnabled;
-      if(!speakEnabled){ try{ window.speechSynthesis.cancel(); }catch(e){} }
-      try{ localStorage.setItem("projectradar_speak", speakEnabled ? "1" : "0"); }catch(e){}
-      updateSpeakToggleBtn();
-    });
-  } else {
-    speakToggleBtn.hidden = true;
   }
 
   var weekUpdateBtn = document.getElementById("weekUpdateBtn");
@@ -2344,7 +2350,9 @@
     } else {
       var answerText = (res.data && res.data.answer) ? res.data.answer : "Geen antwoord ontvangen.";
       chatHistory.push({role:"assistant", content: answerText});
-      speakText(answerText);
+      if(voiceModeActive){
+        speak(answerText, function(){ startListening(); });
+      }
       showUndo(res.data && res.data.undo);
       await loadProjects();
       render();
