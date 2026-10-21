@@ -2211,7 +2211,14 @@
       micBtn.classList.remove("recording");
       if(voiceModeActive){
         if(e.error === "no-speech") startListening();
-        else stopVoiceMode();
+        else {
+          stopVoiceMode();
+          if(e.error === "not-allowed" || e.error === "service-not-allowed"){
+            window.alert("Geen toegang tot de microfoon. Geef toestemming in je browser en probeer opnieuw.");
+          } else if(e.error !== "aborted"){
+            window.alert("Spraakherkenning gestopt (" + e.error + "). Probeer het opnieuw.");
+          }
+        }
       }
     };
     micBtn.addEventListener("click", function(){
