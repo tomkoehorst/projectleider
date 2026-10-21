@@ -490,6 +490,7 @@
 
   .chat-presets{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;}
   .attach-btn.recording{background:var(--risk-bg);color:var(--risk);}
+  .attach-btn.active{background:var(--accent-soft);color:var(--accent);}
 
   .briefing-card{
     border-left:3px solid var(--accent);
@@ -750,6 +751,7 @@
       <form id="askForm" class="ask-row">
         <button type="button" id="attachBtn" class="attach-btn" title="Bestand bijvoegen">&#128206;</button>
         <button type="button" id="micBtn" class="attach-btn" title="Inspreken">&#127908;</button>
+        <button type="button" id="speakToggleBtn" class="attach-btn" title="Lees antwoorden hardop voor">&#128264;</button>
         <textarea id="askInput" placeholder="Bijv. help me een agenda voorbereiden voor het overleg over Wizzportaal"></textarea>
         <button type="submit" class="btn-primary">Vraag</button>
       </form>
@@ -2180,6 +2182,39 @@
     micBtn.hidden = true;
   }
 
+  var speakToggleBtn = document.getElementById("speakToggleBtn");
+  var speechSynthesisSupported = "speechSynthesis" in window;
+  var speakEnabled = false;
+  try{ speakEnabled = localStorage.getItem("projectradar_speak") === "1"; }catch(e){}
+
+  function updateSpeakToggleBtn(){
+    speakToggleBtn.innerHTML = speakEnabled ? "&#128266;" : "&#128264;";
+    speakToggleBtn.classList.toggle("active", speakEnabled);
+    speakToggleBtn.title = speakEnabled ? "Voorlezen staat aan (klik om uit te zetten)" : "Lees antwoorden hardop voor";
+  }
+
+  function speakText(text){
+    if(!speakEnabled || !speechSynthesisSupported || !text) return;
+    try{
+      window.speechSynthesis.cancel();
+      var utter = new SpeechSynthesisUtterance(text);
+      utter.lang = "nl-NL";
+      window.speechSynthesis.speak(utter);
+    }catch(e){}
+  }
+
+  if(speechSynthesisSupported){
+    updateSpeakToggleBtn();
+    speakToggleBtn.addEventListener("click", function(){
+      speakEnabled = !speakEnabled;
+      if(!speakEnabled){ try{ window.speechSynthesis.cancel(); }catch(e){} }
+      try{ localStorage.setItem("projectradar_speak", speakEnabled ? "1" : "0"); }catch(e){}
+      updateSpeakToggleBtn();
+    });
+  } else {
+    speakToggleBtn.hidden = true;
+  }
+
   var weekUpdateBtn = document.getElementById("weekUpdateBtn");
   weekUpdateBtn.addEventListener("click", function(){
     askInput.value = "Doe een weekupdate-ronde met me: loop kort langs al mijn actieve projecten en vraag me per project of er iets veranderd is (status, mijlpaal, to do's, notitie). Verwerk mijn antwoorden direct met de tools.";
@@ -2307,7 +2342,9 @@
     if(res.error || (res.data && res.data.error)){
       chatHistory.push({role:"assistant", content:"Er ging iets mis. Probeer het opnieuw.", error:true});
     } else {
-      chatHistory.push({role:"assistant", content: (res.data && res.data.answer) ? res.data.answer : "Geen antwoord ontvangen."});
+      var answerText = (res.data && res.data.answer) ? res.data.answer : "Geen antwoord ontvangen.";
+      chatHistory.push({role:"assistant", content: answerText});
+      speakText(answerText);
       showUndo(res.data && res.data.undo);
       await loadProjects();
       render();
