@@ -2168,7 +2168,13 @@
   var speakEnabled = false;
   try{ speakEnabled = localStorage.getItem("projectradar_speak") === "1"; }catch(e){}
   var voiceLoopActive = false;
+  var voiceTurnPending = false;
   var lastInputWasVoice = false;
+
+  function setMicIdle(){
+    voiceTurnPending = false;
+    micBtn.classList.remove("recording", "voice-active");
+  }
 
   function updateSpeakToggleBtn(){
     speakToggleBtn.innerHTML = speakEnabled ? "&#128266;" : "&#128264;";
@@ -2203,7 +2209,7 @@
 
   function stopVoiceLoop(){
     voiceLoopActive = false;
-    micBtn.classList.remove("recording", "voice-active");
+    setMicIdle();
     if(recognition){ try{ recognition.stop(); }catch(e){} }
     try{ window.speechSynthesis.cancel(); }catch(e){}
   }
@@ -2216,12 +2222,13 @@
       var text = e.results[0][0].transcript;
       askInput.value = (askInput.value ? askInput.value.trim() + " " : "") + text;
       lastInputWasVoice = true;
+      voiceTurnPending = true;
       if(speakEnabled) voiceLoopActive = true;
       askForm.requestSubmit();
     };
     recognition.onend = function(){
       micBtn.classList.remove("recording");
-      if(!voiceLoopActive) micBtn.classList.remove("voice-active");
+      if(!voiceLoopActive && !voiceTurnPending) micBtn.classList.remove("voice-active");
     };
     recognition.onerror = function(e){
       micBtn.classList.remove("recording");
@@ -2237,7 +2244,7 @@
       }
     };
     micBtn.addEventListener("click", function(){
-      if(micBtn.classList.contains("recording") || voiceLoopActive){
+      if(micBtn.classList.contains("recording") || voiceLoopActive || voiceTurnPending){
         stopVoiceLoop();
       } else {
         lastInputWasVoice = false;
@@ -2386,14 +2393,18 @@
 
     if(res.error || (res.data && res.data.error)){
       chatHistory.push({role:"assistant", content:"Er ging iets mis. Probeer het opnieuw.", error:true});
+      if(voiceTurnPending){ voiceLoopActive = false; setMicIdle(); }
     } else {
       var answerText = (res.data && res.data.answer) ? res.data.answer : "Geen antwoord ontvangen.";
       chatHistory.push({role:"assistant", content: answerText});
+      voiceTurnPending = false;
       if(speakEnabled){
         var shouldRelisten = voiceLoopActive;
         speak(answerText, function(){
-          if(shouldRelisten){ startListening(); } else { voiceLoopActive = false; }
+          if(shouldRelisten){ startListening(); } else { voiceLoopActive = false; setMicIdle(); }
         });
+      } else if(lastInputWasVoice){
+        setMicIdle();
       }
       showUndo(res.data && res.data.undo);
       await loadProjects();
