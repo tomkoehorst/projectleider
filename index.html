@@ -2164,12 +2164,12 @@
   var speakToggleBtn = document.getElementById("speakToggleBtn");
   var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
   var speechSynthesisSupported = "speechSynthesis" in window;
-  var recognition = SpeechRecognitionCtor ? new SpeechRecognitionCtor() : null;
   var speakEnabled = false;
   try{ speakEnabled = localStorage.getItem("projectradar_speak") === "1"; }catch(e){}
   var voiceSessionActive = false;
   var voiceTurnPending = false;
   var lastInputWasVoice = false;
+  var recognition = null;
 
   function setMicIdle(){
     voiceTurnPending = false;
@@ -2194,17 +2194,59 @@
     }catch(e){ if(onDone) onDone(); }
   }
 
+  function createRecognition(){
+    var r = new SpeechRecognitionCtor();
+    r.lang = "nl-NL";
+    r.interimResults = false;
+    r.continuous = false;
+    r.onresult = function(e){
+      var text = e.results[0][0].transcript;
+      askInput.value = (askInput.value ? askInput.value.trim() + " " : "") + text;
+      lastInputWasVoice = true;
+      voiceTurnPending = true;
+      askForm.requestSubmit();
+    };
+    r.onend = function(){
+      micBtn.classList.remove("recording");
+      if(!voiceSessionActive && !voiceTurnPending) micBtn.classList.remove("voice-active");
+    };
+    r.onerror = function(e){
+      micBtn.classList.remove("recording");
+      if(e.error === "no-speech" && voiceSessionActive){
+        startListening();
+        return;
+      }
+      var hadSession = voiceSessionActive;
+      stopVoiceSession();
+      if(e.error === "not-allowed" || e.error === "service-not-allowed"){
+        window.alert("Geen toegang tot de microfoon. Geef toestemming in je browser en probeer opnieuw.");
+      } else if(hadSession && e.error !== "aborted" && e.error !== "no-speech"){
+        window.alert("Spraakherkenning gestopt (" + e.error + "). Probeer het opnieuw.");
+      }
+    };
+    return r;
+  }
+
   function startListening(){
-    if(!recognition) return;
+    if(!SpeechRecognitionCtor) return;
     micBtn.classList.add("recording", "voice-active");
-    try{
-      recognition.start();
-    }catch(err){
-      setTimeout(function(){
-        try{ recognition.start(); }
-        catch(err2){ voiceSessionActive = false; setMicIdle(); }
-      }, 250);
+    var attempts = 0;
+    function attempt(){
+      attempts++;
+      try{
+        recognition = createRecognition();
+        recognition.start();
+      }catch(err){
+        if(attempts < 4){
+          setTimeout(attempt, attempts * 200);
+        } else {
+          voiceSessionActive = false;
+          setMicIdle();
+          window.alert("De microfoon kon niet opnieuw starten. Tik op de microfoon om het gesprek opnieuw te beginnen.");
+        }
+      }
     }
+    attempt();
   }
 
   function stopVoiceSession(){
@@ -2220,35 +2262,7 @@
     startListening();
   }
 
-  if(recognition){
-    recognition.lang = "nl-NL";
-    recognition.interimResults = false;
-    recognition.continuous = false;
-    recognition.onresult = function(e){
-      var text = e.results[0][0].transcript;
-      askInput.value = (askInput.value ? askInput.value.trim() + " " : "") + text;
-      lastInputWasVoice = true;
-      voiceTurnPending = true;
-      askForm.requestSubmit();
-    };
-    recognition.onend = function(){
-      micBtn.classList.remove("recording");
-      if(!voiceSessionActive && !voiceTurnPending) micBtn.classList.remove("voice-active");
-    };
-    recognition.onerror = function(e){
-      micBtn.classList.remove("recording");
-      if(e.error === "no-speech" && voiceSessionActive){
-        startListening();
-        return;
-      }
-      var hadSession = voiceSessionActive;
-      stopVoiceSession();
-      if(e.error === "not-allowed" || e.error === "service-not-allowed"){
-        window.alert("Geen toegang tot de microfoon. Geef toestemming in je browser en probeer opnieuw.");
-      } else if(hadSession && e.error !== "aborted" && e.error !== "no-speech"){
-        window.alert("Spraakherkenning gestopt (" + e.error + "). Probeer het opnieuw.");
-      }
-    };
+  if(SpeechRecognitionCtor){
     micBtn.addEventListener("click", function(){
       if(voiceSessionActive || micBtn.classList.contains("recording") || voiceTurnPending){
         stopVoiceSession();
