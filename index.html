@@ -2167,7 +2167,7 @@
   var recognition = SpeechRecognitionCtor ? new SpeechRecognitionCtor() : null;
   var speakEnabled = false;
   try{ speakEnabled = localStorage.getItem("projectradar_speak") === "1"; }catch(e){}
-  var voiceLoopActive = false;
+  var voiceSessionActive = false;
   var voiceTurnPending = false;
   var lastInputWasVoice = false;
 
@@ -2202,16 +2202,22 @@
     }catch(err){
       setTimeout(function(){
         try{ recognition.start(); }
-        catch(err2){ micBtn.classList.remove("recording", "voice-active"); voiceLoopActive = false; }
+        catch(err2){ voiceSessionActive = false; setMicIdle(); }
       }, 250);
     }
   }
 
-  function stopVoiceLoop(){
-    voiceLoopActive = false;
+  function stopVoiceSession(){
+    voiceSessionActive = false;
     setMicIdle();
     if(recognition){ try{ recognition.stop(); }catch(e){} }
     try{ window.speechSynthesis.cancel(); }catch(e){}
+  }
+
+  function startVoiceSession(){
+    voiceSessionActive = true;
+    lastInputWasVoice = false;
+    startListening();
   }
 
   if(recognition){
@@ -2223,32 +2229,31 @@
       askInput.value = (askInput.value ? askInput.value.trim() + " " : "") + text;
       lastInputWasVoice = true;
       voiceTurnPending = true;
-      if(speakEnabled) voiceLoopActive = true;
       askForm.requestSubmit();
     };
     recognition.onend = function(){
       micBtn.classList.remove("recording");
-      if(!voiceLoopActive && !voiceTurnPending) micBtn.classList.remove("voice-active");
+      if(!voiceSessionActive && !voiceTurnPending) micBtn.classList.remove("voice-active");
     };
     recognition.onerror = function(e){
       micBtn.classList.remove("recording");
-      if(e.error === "no-speech" && voiceLoopActive){
+      if(e.error === "no-speech" && voiceSessionActive){
         startListening();
         return;
       }
-      stopVoiceLoop();
+      var hadSession = voiceSessionActive;
+      stopVoiceSession();
       if(e.error === "not-allowed" || e.error === "service-not-allowed"){
         window.alert("Geen toegang tot de microfoon. Geef toestemming in je browser en probeer opnieuw.");
-      } else if(e.error !== "aborted" && e.error !== "no-speech"){
+      } else if(hadSession && e.error !== "aborted" && e.error !== "no-speech"){
         window.alert("Spraakherkenning gestopt (" + e.error + "). Probeer het opnieuw.");
       }
     };
     micBtn.addEventListener("click", function(){
-      if(micBtn.classList.contains("recording") || voiceLoopActive || voiceTurnPending){
-        stopVoiceLoop();
+      if(voiceSessionActive || micBtn.classList.contains("recording") || voiceTurnPending){
+        stopVoiceSession();
       } else {
-        lastInputWasVoice = false;
-        startListening();
+        startVoiceSession();
       }
     });
   } else {
@@ -2259,7 +2264,7 @@
     updateSpeakToggleBtn();
     speakToggleBtn.addEventListener("click", function(){
       speakEnabled = !speakEnabled;
-      if(!speakEnabled){ voiceLoopActive = false; try{ window.speechSynthesis.cancel(); }catch(e){} }
+      if(!speakEnabled){ try{ window.speechSynthesis.cancel(); }catch(e){} }
       try{ localStorage.setItem("projectradar_speak", speakEnabled ? "1" : "0"); }catch(e){}
       updateSpeakToggleBtn();
     });
@@ -2393,16 +2398,18 @@
 
     if(res.error || (res.data && res.data.error)){
       chatHistory.push({role:"assistant", content:"Er ging iets mis. Probeer het opnieuw.", error:true});
-      if(voiceTurnPending){ voiceLoopActive = false; setMicIdle(); }
+      voiceTurnPending = false;
+      if(voiceSessionActive){ startListening(); } else { setMicIdle(); }
     } else {
       var answerText = (res.data && res.data.answer) ? res.data.answer : "Geen antwoord ontvangen.";
       chatHistory.push({role:"assistant", content: answerText});
       voiceTurnPending = false;
       if(speakEnabled){
-        var shouldRelisten = voiceLoopActive;
         speak(answerText, function(){
-          if(shouldRelisten){ startListening(); } else { voiceLoopActive = false; setMicIdle(); }
+          if(voiceSessionActive){ startListening(); } else { setMicIdle(); }
         });
+      } else if(voiceSessionActive){
+        startListening();
       } else if(lastInputWasVoice){
         setMicIdle();
       }
