@@ -582,6 +582,14 @@
   .milestone-badge.overdue{background:var(--risk-bg);color:var(--risk);}
   .milestone-badge.urgent{background:var(--warn-bg);color:var(--warn);}
   .milestone-badge.normal{background:var(--accent-soft);color:var(--accent);}
+  .milestone-row-right{display:flex;align-items:center;gap:8px;flex:none;}
+  .milestone-done-btn{
+    flex:none;width:22px;height:22px;border-radius:50%;
+    border:1px solid var(--border-strong);background:var(--surface);color:var(--text-faint);
+    font-size:12px;line-height:1;cursor:pointer;padding:0;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .milestone-done-btn:hover{background:var(--good-bg);color:var(--good);border-color:var(--good);}
   .milestone-empty{font-size:13.5px;color:var(--text-muted);margin:0;}
 
   .undo-bar{
@@ -1016,7 +1024,10 @@
             '<span class="milestone-row-name">' + esc(p.name) + '</span>' +
             desc +
           '</span>' +
-          '<span class="milestone-badge ' + badgeCls + '" title="' + fmtDate(p.milestone_date) + '">' + esc(ms.text) + '</span>' +
+          '<span class="milestone-row-right">' +
+            '<span class="milestone-badge ' + badgeCls + '" title="' + fmtDate(p.milestone_date) + '">' + esc(ms.text) + '</span>' +
+            '<button class="milestone-done-btn" title="Markeer als afgerond" data-action="complete-milestone" data-id="' + p.id + '" type="button">&#10003;</button>' +
+          '</span>' +
         '</div>';
       }).join("");
   }
@@ -1959,6 +1970,13 @@
   root.addEventListener("blur", onGridBlur, true);
   root.addEventListener("keydown", onGridKeydown);
   root.addEventListener("input", onGridInput);
+
+  document.getElementById("milestonesCard").addEventListener("click", function(e){
+    var btn = e.target.closest('[data-action="complete-milestone"]');
+    if(!btn) return;
+    var id = btn.getAttribute("data-id");
+    updateProject(id, touch({milestone_text: "", milestone_date: null}));
+  });
 
   // ---- auth ----
   loginForm.addEventListener("submit", async function(e){
